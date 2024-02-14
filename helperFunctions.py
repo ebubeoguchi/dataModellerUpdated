@@ -1,193 +1,61 @@
 import streamlit as st
 import pandas as pd
 import openai
+import re
+from cachetools import cached, TTLCache
 
 
-@st.cache_data
-def generate_response(system_prompt, user_prompt, model):
-    response = openai.ChatCompletion.create(
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        model=model,
-        max_tokens=2048,
-        temperature=0.3,
-    )
 
-    return response["choices"][0]["message"]["content"].strip()
+@cached(cache=TTLCache(maxsize=3000, ttl=3000))
+def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
+    try:
+        if model not in ["gpt-3.5-turbo-0125", "gpt-4-0125-preview"]:
+            raise ValueError("Invalid model specified. Supported models are 'gpt-3.5-turbo-0125' and 'gpt-4-0125-preview'.")
 
+        if model == "gpt-3.5-turbo-0125":
+            # Reduce the length of the user prompt
+            user_prompt = user_prompt[:4000]
 
-# def business(folder, model, metatag_system_prompt, init_prompt):
-#     st.title("For Business User")
+            # Reduce the length of the system prompt
+            system_prompt = system_prompt[:2047]
+            print("user_prompt", user_prompt)
+            print("system_prompt", system_prompt)
 
-#     if "data_loaded" not in st.session_state:
-#         st.session_state.data_loaded = False
-#     if "content_generated" not in st.session_state:
-#         st.session_state.content_generated = False
+            response = openai.ChatCompletion.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                model=model,
+                max_tokens=max_tokens,
+                temperature=0.3,
+            )
 
+            # Check if the response exceeds the token limit
+            if response['usage']['total_tokens'] >= max_tokens:
+                # Truncate the response to fit within the token limit
+                response["choices"][0]["message"]["content"] = response["choices"][0]["message"]["content"][:max_tokens]
 
-#     conversation_history = []
-#     conversation_history.append({"role": "assistant", "content": init_prompt})
-#     df = pd.DataFrame()
-#     st.sidebar.markdown("----")
-#     if st.sidebar.button("Load Dataset") or st.session_state.data_loaded:
-#         for filename in os.listdir(folder):
-#             if filename.endswith('.csv'):
-#                 file_path = os.path.join(folder, filename)
-#                 df = pd.read_csv(file_path)
-#                 non_null_rows = df.iloc[:5]
-#                 st.markdown(f"### Dataset sample: `{filename}`")
-#                 st.table(non_null_rows)
-#         st.session_state.data_loaded = True
+            return response["choices"][0]["message"]["content"].strip()
+        
+        elif model == "gpt-4-0125-preview":
+            response = openai.ChatCompletion.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            model=model,
+            max_tokens=4096,
+            temperature=0.3,)
+            
+            return response["choices"][0]["message"]["content"].strip()
 
-#     st.sidebar.markdown("----")
-#     folder = str(Path.cwd()) + str(Path("/HR/TableScripts"))
-#     file_name = next((filename for filename in os.listdir(folder) if filename.endswith('.txt')), None)
+    
+    except Exception as e:
+        # Handle exceptions, you can customize this part based on your needs
+        print(f"Error: {str(e)}")
+        return "An error occurred while generating the response."
 
-#     if file_name:
-#         file_path = os.path.join(folder, file_name)
-
-#         # Read the text file and store its contents as a string
-#         with open(file_path, 'r') as file:
-#             text = file.read()
-#     query = st.text_input('Input your query')
-#     queryButton = st.button("Get SQL code")
-#     prompt =   query + f"""\n
-#     - only provide a query for the first table.
-#     - only provide the SQL code for the query. \n
-#     Here is the table: \n
-#     {text}
-#     """
-#     if queryButton or st.session_state.content_generated:
-#          st.code(generate_response(metatag_system_prompt, prompt, model), language="sql")
-
-
-#     questions = {'Summary': 'Give me the summary of the data in one paragraph',
-#                  'Use_Case': 'Give me the potential use cases of this data',
-#                  'Data_Description': 'Give me only the data description section',
-#                  'Sensitive_Info': 'Which attributes contain personal sensitive information?'}
-
-#     storeResponsesBizUser = ""
-#     qCountBizUser = 1
-#     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
-#         for q in questions:
-#             # conversation_history.append({"role": "user", "content": questions[q]})
-#             prompt = init_prompt + '\n' + questions[q]
-#             print(prompt)
-#             output = generate_response(metatag_system_prompt, prompt, model)
-#             storeResponsesBizUser += f'Q{qCountBizUser}. ' + \
-#                 questions[q] + \
-#                 '\n\n' + output + '\n\n\n\n'
-#             qCountBizUser += 1
-#             # conversation_history.append({"role": "assistant", "content": output})
-#             with st.expander(questions[q]):
-#                 st.write(output)
-#                 # st.button("Export " + q + " to Data Marketplace")
-#         st.sidebar.download_button(
-#             "Download Responses", data=storeResponsesBizUser)
-
-
-# def business(folder, model, metatag_system_prompt, init_prompt):
-#     st.title("Business View")
-
-#     if "data_loaded" not in st.session_state:
-#         st.session_state.data_loaded = False
-#     if "content_generated" not in st.session_state:
-#         st.session_state.content_generated = False
-
-#     conversation_history = []
-#     conversation_history.append({"role": "assistant", "content": init_prompt})
-
-#     st.sidebar.markdown("----")
-#     if st.sidebar.button("Load Dataset") or st.session_state.data_loaded:
-#         for filename in os.listdir(folder):
-#             if filename.endswith('.csv'):
-#                 file_path = os.path.join(folder, filename)
-#                 df = pd.read_csv(file_path)
-#                 non_null_rows = df
-#                 st.markdown(f"### Dataset sample: `{filename}`")
-#                 st.table(non_null_rows)
-#         st.session_state.data_loaded = True
-
-#     st.sidebar.markdown("----")
-
-#     questions = {
-
-#         'Summary': 'Give me the summary of the data in one paragraph',
-#         'Use_Case': 'Give me the potential use cases of this data',
-#         'Tabular Data': 'Can you show all the column names, their datatypes in SQL format, brief description and PII in a nice tabular format',  # DATA CATALOGUE
-
-#     }
-
-#     storeResponsesBizUser = ""
-#     qCountBizUser = 1
-#     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
-#         for q in questions:
-#             # conversation_history.append({"role": "user", "content": questions[q]})
-#             prompt = init_prompt + '\n' + questions[q]
-#             print(prompt)
-#             output = generate_response(metatag_system_prompt, prompt, model)
-#             storeResponsesBizUser += f'Q{qCountBizUser}. ' + \
-#                 questions[q] + \
-#                 '\n\n' + output + '\n\n\n\n'
-#             qCountBizUser += 1
-#             # conversation_history.append({"role": "assistant", "content": output})
-#             with st.expander(questions[q]):
-#                 st.write(output)
-#                 # st.button("Export " + q + " to Data Marketplace")
-#         st.sidebar.download_button(
-#             "Download Responses", data=storeResponsesBizUser)
-
-# REDACTED BUSINESS USER TWO
-
-# def businessUserTwo(folder, model, metatag_system_prompt, init_prompt):
-#     st.title("For Business User Two")
-
-#     if "data_loaded" not in st.session_state:
-#         st.session_state.data_loaded = False
-#     if "content_generated" not in st.session_state:
-#         st.session_state.content_generated = False
-
-#     conversation_history = []
-#     conversation_history.append({"role": "assistant", "content": init_prompt})
-
-#     st.sidebar.markdown("----")
-#     if st.sidebar.button("Load Dataset") or st.session_state.data_loaded:
-#         for filename in os.listdir(folder):
-#             if filename.endswith('.csv'):
-#                 file_path = os.path.join(folder, filename)
-#                 df = pd.read_csv(file_path)
-#                 non_null_rows = df.iloc[:5]
-#                 st.markdown(f"### Dataset sample: `{filename}`")
-#                 st.table(non_null_rows)
-#         st.session_state.data_loaded = True
-
-#     st.sidebar.markdown("----")
-
-#     questions = {'Summary': 'Give me the summary of the data in one paragraph',
-#                  'Use_Case': 'Give me the potential use cases of this data',
-#                  'Data_Description': 'Give me only the data description section',
-#                  'Sensitive_Info': 'Which attributes contain personal sensitive information?'}
-
-#     storeResponsesBizUserTwo = ""
-#     qCountBizUserTwo = 1
-#     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
-#         for q in questions:
-#             # conversation_history.append({"role": "user", "content": questions[q]})
-#             prompt = init_prompt + '\n' + questions[q]
-#             print(prompt)
-#             output = generate_response(metatag_system_prompt, prompt, model)
-#             storeResponsesBizUserTwo += f'Q{qCountBizUserTwo}. ' + \
-#                 questions[q] + \
-#                 '\n\n' + output + '\n\n\n\n'
-#             qCountBizUserTwo += 1
-#             # conversation_history.append({"role": "assistant", "content": output})
-#             with st.expander(questions[q]):
-#                 st.write(output)
-#                 # st.button("Export " + q + " to Data Marketplace")
-#         st.sidebar.download_button(
-#             "Download Responses", data=storeResponsesBizUserTwo)
 
 
 def get_text():
@@ -195,205 +63,160 @@ def get_text():
     return input_text
 
 
-# def read_dataset(folder_path):
-#     dataset_as_string = {}
-#     for filename in os.listdir(folder_path):
-#         if filename.endswith('.csv'):
-#             file_path = os.path.join(folder_path, filename)
-#             df = pd.read_csv(file_path)
-#             non_null_rows = df.dropna().iloc[:5]
-#             dataset_as_string[filename] = non_null_rows.to_csv(
-#                 index=False, sep=',')
-#         elif filename.endswith('.xlsx'):
-#             excel_data = pd.read_excel
-#             for sheet_name, sheet_data in excel_data.items():
-#                 sheet_data = sheet_data.dropna().iloc[:5]
-#                 dataset_as_string[sheet_name] = sheet_data.to_csv(
-#                     index=False, sep=',')
 
-#     data_string = ""
-#     for table_name, table_string in dataset_as_string.items():
-#         data_string += f"Table: {table_name}" + table_string + "\n"
+def generate_erd(relationships):
+    try:
+        # Use OpenAI to generate ERD code based on relationships
+        prompt = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": f"You are a data modeller. You have to create markdown code for Entity Relationship diagram for mermaid.js library using the following information:{relationships}"},
+            {"role": "assistant", "content": "Create the mermaid.js code for the Entity Relationship Diagram"}
+        ]
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0125-preview",
+            messages=prompt,
+            max_tokens=4090,
+            temperature = 0.5
+        )
+    
 
-#     return data_string
+        content = response["choices"][0]["message"]["content"]
+        match = re.search(r"```mermaid(.*?)```", content, re.DOTALL)
 
-# REDACTED TECHNICAL USER TWO
+        if match:
+            # print('Match!!!!!')
+            erd_content = match.group(1)
+            return erd_content
+        else:
+            return "No content found between triple single-quotes."
 
-# def techUserTwo(model, metatag_system_prompt, init_prompt):
-#     if "content_generated" not in st.session_state:
-#         st.session_state.content_generated = False
+        
 
-#     conversation_history = []
-#     # conversation_history.append({"role": "assistant", "content": init_prompt})
-#     st.title("For Technical User Two")
-#     st.sidebar.markdown("----")
-
-#     st.sidebar.markdown('----')
-
-#     # downloadButton = st.sidebar.download_button("Download Responses")
-
-#     # st.sidebar.markdown('----')
-
-#     uploaded_files = st.sidebar.file_uploader(
-#         "Select the source code to interpret", accept_multiple_files=True)
-
-#     for uploaded_file in uploaded_files:
-#         code_txt = uploaded_file.getvalue()
-#         content = str(uploaded_file.name) + " " + str(code_txt)
-#         conversation_history.append({"role": "user", "content": content})
-#         st.write("filename:", uploaded_file.name)
-#         st.code(code_txt.decode("utf-8"), language='python')
-
-#     st.sidebar.markdown("----")
-
-#     questions = {'Summary': 'give me a brief one paragraph summary of the uploaded data',
-#                  'SQL table': 'create a SQL table based on the above data in proper code format, breaking it into several tables with primary keys and foreign keys if necessary.',
-#                  'Data Model': 'Can you show the data model in tabular format if we create several SQL tables based on the above data dictionary with primary key relationships in details'}
-
-#     # for the above table -> the input to the 'get SQL code'
-
-#     storeResponsesTechUserTwo = ""
-#     qCountTechUserTwo = 1
-#     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
-#         for q in questions:
-#             prompt = "\n".join([message["content"]
-#                                 for message in conversation_history])
-#             prompt += '\n' + questions[q]
-
-#             print(prompt)
-#             output = generate_response(
-#                 metatag_system_prompt, prompt, model)
-#             storeResponsesTechUserTwo += f'Q{qCountTechUserTwo}. ' + \
-#                 questions[q] + '\n\n' + output + '\n\n\n\n'
-#             qCountTechUserTwo += 1
-#             with st.expander(questions[q]):
-#                 st.write(output)
-#                 if q in ['README', 'Code']:
-#                     st.button("Download " + q)
-
-#         st.sidebar.download_button(
-#             "Download Responses", data=storeResponsesTechUserTwo)
+        # return erd_code
+    except Exception as e:
+        return f"An error occurred in generate_erd_openai: {str(e)}"
 
 
 def mermaid_chart(markdown_code):
-    html_code = f"""
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
-    <div class="mermaid">{markdown_code}</div>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({{startOnLoad:true}});</script>
-    """
-    return html_code
+    new_markdown_code = markdown_code.replace("mermaid", "")
+
+    try:
+        html_code = f"""
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+        <style>
+            .mermaid-container {{
+                overflow: hidden;
+                position: absolute;
+            }}
+            .mermaid {{
+                /* Add your custom styles here */
+                background-color: #f5f5f5;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                padding: 10px;
+            }}
+        </style>
+        <div class="mermaid-container">
+            <div class="mermaid">{new_markdown_code}</div>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        <script src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
+        <script>
+            mermaid.initialize({{ startOnLoad: true }});
+
+            // Enable zooming with panzoom
+            const container = document.querySelector('.mermaid-container');
+            const mermaidDiv = document.querySelector('.mermaid');
+            const panzoom = window.panzoom(mermaidDiv);
+
+            container.addEventListener('wheel', function (e) {{
+                e.preventDefault();
+                panzoom.zoomWithWheel(e);
+            }});
+        </script>
+        """ 
+        return html_code
+    except Exception as e:
+        return f"An error occurred in mermaid_chart: {str(e)}"
 
 
 def business(model, metatag_system_prompt):
-    if "content_generated" not in st.session_state:
-        st.session_state.content_generated = False
+    try:
+        if "content_generated" not in st.session_state:
+            st.session_state.content_generated = False
 
-    conversation_history = []
-    # conversation_history.append({"role": "assistant", "content": init_prompt})
-    st.title("Business View")
-    st.sidebar.markdown("----")
+        conversation_history = []
+        st.title("Business View")
+        st.sidebar.markdown("----")
 
-    uploaded_files = st.sidebar.file_uploader(
-        "Select the source code to interpret", accept_multiple_files=True
-    )
+        uploaded_files = st.sidebar.file_uploader(
+            "Select the source code to interpret", accept_multiple_files=True
+        )
 
-    for uploaded_file in uploaded_files:
-        code_txt = uploaded_file.getvalue()
-        content = str(uploaded_file.name) + " " + str(code_txt)
-        conversation_history.append({"role": "user", "content": content})
-        dataframe = pd.read_csv(uploaded_file)
-        st.write("filename:", uploaded_file.name)
-        st.table(dataframe)
-        # st.code(code_txt.decode("utf-8"), language='python')
+        # Create a dictionary to store uploaded tables
+        uploaded_tables = {}
 
-    st.sidebar.markdown("----")
+        for uploaded_file in uploaded_files:
+            code_txt = uploaded_file.getvalue()
+            content = str(uploaded_file.name) + " " + str(code_txt)
+            conversation_history.append({"role": "user", "content": content})
+            dataframe = pd.read_csv(uploaded_file, nrows=20)  # Read only the first 20 rows
+            uploaded_tables[uploaded_file.name] = dataframe  # Store dataframe in dictionary
+            # Use st.beta_expander for expandable file preview
+            with st.expander(f"File Preview: {uploaded_file.name}"):
+                st.table(dataframe)
+            # st.write("filename:", uploaded_file.name)
+            # st.table(dataframe)
 
-    # Predefined question set
-    questions = {
-        "Summary": "Give me a brief summary of the data in bullet points without mentioning the column names",
-        "Use_Case": "Give me the potential use cases of this data?",
-        "Relationships": "Are there any relationships within the columns of the data?",
-        "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",  # DATA CATALOGUE
-    }
+        st.sidebar.markdown("----")
 
-    # for the above table -> the input to the 'get SQL code'
-    storeResponses = ""
-    qCount = 1
-    relationshipResponse = ""
-    if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
-        for q in questions:
-            prompt = "\n".join([message["content"] for message in conversation_history])
-            # print([message["content"]
-            #        for message in conversation_history])
-            prompt += "\n" + questions[q]
+        # Predefined question set
+        questions = {
+            "Summary": "Give me a brief summary of the data uploaded in bullet points without mentioning the column names?",
+            "Use_Case": "Give me examples of potential use cases of these dataset?",
+            "Relationships": "Are there any relationships within the columns of the data?",
+            "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",  # DATA CATALOGUE
+        }
 
-            # print(prompt)
-            output = generate_response(metatag_system_prompt, prompt, model)
-            storeResponses += (
-                f"Q{qCount}. " + questions[q] + "\n\n" + output + "\n\n\n\n"
-            )
-            qCount += 1
-            with st.expander(questions[q]):
-                st.write(output)
-                if q in ["README", "Code"]:
-                    st.button("Download " + q)
+        storeResponses = ""
+        qCount = 1
+        relationshipResponse = ""
 
-            # add relationships response to a variable
-            if list(questions.values()).index(questions[q]) == "Relationships":
-                relationshipResponse += output
+        if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
+            for q in questions:
+                # Modify the prompt to include only the first 20 rows of the dataset
+                prompt = "\n".join([message["content"] for message in conversation_history])
+                prompt += "\n" + questions[q]
+                print("metatag_system_prompt", metatag_system_prompt)
+                print("prompt", prompt)
 
-        st.sidebar.download_button("Download Responses", data=storeResponses)
+                output = generate_response(metatag_system_prompt, prompt, model)
+                storeResponses += f"Q{qCount}. {questions[q]}\n\n{output}\n\n\n\n"
+                qCount += 1
 
-        # create context prompt to generate md code for mermaid.js
-        # entityRelationshipContext = f"""
+                with st.expander(questions[q]):
+                    st.write(output)
+                    if q in ["README", "Code"]:
+                        st.button(f"Download {q}")
 
-        #     You are a data modeller. You have to create markdown code for Entity Relationship diagram for mermaid.js
-        #     library using the following information:
-        #             {relationshipResponse}
+                # add relationships response to a variable
+                if q == "Relationships":  # Check if it's the Relationships question
+                    relationshipResponse = output
 
-        #             """
-        # # user prompt to grab md code to use in chat completion endpoint
-        # markdownPrompt = "Create the markdown code for ERD for mermaid.js library"
+            # Display ERD
+            entityDiagramCode = generate_erd(relationshipResponse)
 
-        # # generate the markdown code for the ERD
-        # entityDiagramCode = generate_response(
-        #     entityRelationshipContext, markdownPrompt, model)
+            st.markdown("### Entity-Relationship Diagram (ERD)")
+            if entityDiagramCode is not None:
+                st.components.v1.html(mermaid_chart(entityDiagramCode), width=500, height=600, scrolling=True)
+            else:
+                st.error("An error occurred while generating the ERD.")
 
-        # # display ERD in html
-        # # render HTML
-        # code = """
-        #     ```mermaid
-        #     erDiagram
-        #         TRN_REF_NO as Transaction Reference Number {
-        #             title: "TRN_REF_NO"
-        #             (primary key)
-        #         }
-        #         AC_NO as Account Number {
-        #             title: "AC_NO"
-        #             (foreign key)
-        #         }
-        #         RELATED_CUSTOMER as Related Customer {
-        #             title: "RELATED_CUSTOMER"
-        #             (foreign key)
-        #         }
-        #         RELATED_ACCOUNT as Related Account {
-        #             title: "RELATED_ACCOUNT"
-        #             (foreign key)
-        #         }
-        #         RELATED_REFERENCE as Related Reference {
-        #             title: "RELATED_REFERENCE"
-        #             (foreign key)
-        #         }
-        #         TRN_REF_NO }|--||--{ AC_NO
-        #         TRN_REF_NO }|--||--{ RELATED_CUSTOMER
-        #         TRN_REF_NO }|--||--{ RELATED_ACCOUNT
-        #         TRN_REF_NO }|--||--{ RELATED_REFERENCE
-        #     ```
-        #     """
-        # components.html(
-        #     mermaid_chart(code), width=500, height=500
-        # )
+            st.sidebar.download_button("Download Responses", data=storeResponses)
+    except Exception as e:
+
+        st.error(f"An error occurred in the business function: {str(e)}")
+
 
 
 def tech(model, metatag_system_prompt):
@@ -417,7 +240,7 @@ def tech(model, metatag_system_prompt):
     for uploaded_file in uploaded_files:
         code_txt = uploaded_file.getvalue()
         content = str(uploaded_file.name) + " " + str(code_txt)
-        dataframe = pd.read_csv(uploaded_file)
+        dataframe = pd.read_csv(uploaded_file, nrows=20)  # Read only the first 20 rows
         conversation_history.append({"role": "user", "content": content})
         st.write("filename:", uploaded_file.name)
         st.table(dataframe)
@@ -439,6 +262,7 @@ def tech(model, metatag_system_prompt):
     qCount = 1
     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
         for q in questions:
+            # Modify the prompt to include only the first 20 rows of the dataset
             prompt = "\n".join([message["content"] for message in conversation_history])
             prompt += "\n" + questions[q]
 
@@ -461,50 +285,3 @@ def tech(model, metatag_system_prompt):
             st.write(generate_response(metatag_system_prompt, prompt, model))
 
         st.sidebar.download_button("Download Responses", data=storeResponses)
-
-
-# def customUser(model):
-#     if "content_generated" not in st.session_state:
-#         st.session_state.content_generated = False
-
-#     conversation_history = []
-
-#     st.title("SQL Code Converter")
-#     # downloadButton = st.sidebar.download_button("Download Responses")
-#     bytes_data = None
-#     uploaded_files = st.file_uploader(
-#         "Upload database tables", accept_multiple_files=True)
-#     for file in uploaded_files:
-#         bytes_data = file.read()
-#         # st.write("filename:", file.name)
-
-#     question = st.text_area(
-#         label="Enter SQL script", key="question", height=100)
-#     submit = st.button(label='Submit')
-
-#     if uploaded_files is not None:
-#         custom_user_prompt = f"""You are an expert SQL developer. Your task is to do the following:
-#                                 - You are given two databases with one or more tables inside created with the following format:
-#                                         {bytes_data}
-#                                 - Examine the SQL code provided to you: {question}
-#                                 - The provided SQL code makes a query to the first database. You should respond with an equivalent SQL code that does the exact same thing from the second database.
-#                                 - Ask to clarify if you did not understand the question
-#                                   """
-#     else:
-#         pass
-#     conversation_history.append(
-#         {"role": "assistant", "content": custom_user_prompt})
-#     questions = {
-#         "user_question": question
-#     }
-#     if submit or st.session_state.content_generated:
-#         for q in questions:
-#             prompt = "\n".join([message["content"]
-#                                 for message in conversation_history])
-#             prompt += '\n' + questions[q]
-
-#             print(prompt)
-#             output = generate_response(
-#                 custom_user_prompt, prompt, model)
-#             with st.expander("SQL code:"):
-#                 st.code(output, language='sql')
