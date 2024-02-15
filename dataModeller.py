@@ -1,5 +1,6 @@
 import streamlit as st
 from helperFunctions import business, tech
+import os
 import openai
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -29,7 +30,16 @@ with open("config.json") as f:
 # openai.api_base = azure_openai_endpoint
 # openai.api_key = azure_openai_key
 
-openai.api_key = "azure_openai_key"
+# openai.api_key = "azure_openai_key"
+
+#Note: The openai-python library support for Azure OpenAI is in preview.
+      #Note: This code sample requires OpenAI Python library version 0.28.1 or lower.
+
+openai.api_type = "azure"
+openai.api_base = "https://datastudio-uki-openai-dev.openai.azure.com/"
+openai.api_version = "2023-07-01-preview"
+openai.api_key = os.getenv("09149f0a2968470b802d1641dd723f63")
+
 
 def main():
     # data_folder = "HR/HRdata"
