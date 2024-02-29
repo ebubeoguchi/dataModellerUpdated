@@ -47,7 +47,7 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                 ],
                 model=model,
                 max_tokens=4096,
-                temperature=0.4 )
+                temperature=0.4)
 
             return response["choices"][0]["message"]["content"].strip()
 
@@ -62,21 +62,71 @@ def get_text():
     input_text = st.text_input("You: ", "", key="input")
     return input_text
 
-# @st.cache_data
-def generate_erd(data, relationships):
+@st.cache_data
+def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
     try:
+        # Combine all dataframes into a single dataframe
+        combined_df = pd.concat(dataset.values())
+
+        # Convert all columns to strings
+        combined_df = combined_df.astype(str)
+
+        # Get a list of all unique values across all columns (potential entities)
+        entities = combined_df.values.flatten().tolist()
+
+        # Convert the list to a comma-separated string
+        unique_entities = ", ".join(set(entities))
+
+        # Craft the prompt, incorporating actual data as examples
+        prompt = [
+            {"role": "system", "content": f"Find any relationships within the data below. Examples of data points include: {unique_entities}."},
+            {"role": "user", "content": combined_df.to_string(index=False)}
+        ]
+
+        # Send the prompt to GPT-4
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0125-preview",
+            messages=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        print('Response', response)
+
+        # Extract the generated text
+        content = response["choices"][0]["message"]["content"]
+
+        # Extract relationships using the same approach (can be improved)
+        # match = re.findall(
+        #     r"(?P<entity1>\w+\s?\w+)\s*(?:relates to|has a relationship with|is associated with)\s*(?P<entity2>\w+\s?\w+)",
+        #     content)
+
+        # Construct the relationships string
+        # relationships = "\n".join([f"- {entity1} {relationship} {entity2}" for entity1, entity2, relationship in match])
+
+        return content
+
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
+
+
+@st.cache_data
+def generate_erd(data):
+    try:
+        relationships = generate_relationships(data)
+
+        print("relationships", relationships)
         # Use OpenAI to generate ERD code based on relationships
         prompt = [
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are a helpful assistant and a data modeller."},
             {"role": "user",
-             "content": f"You are a data modeller. You have to create markdown code for Entity Relationship diagram for mermaid.js library using the following data info:{data} and data relationship info: {relationships}"},
-            {"role": "assistant", "content": "Create the mermaid.js code for the Entity Relationship Diagram"}
+             "content": f"Create a markdown code for Entity Relationship diagram for mermaid.js library using the following relationships:\n{relationships}"},
         ]
         response = openai.ChatCompletion.create(
             model="gpt-4-0125-preview",
             messages=prompt,
             max_tokens=4096,
-            temperature=0.5
+            temperature=0.8
         )
 
         content = response["choices"][0]["message"]["content"]
@@ -94,7 +144,8 @@ def generate_erd(data, relationships):
     except Exception as e:
         return f"An error occurred in generate_erd_openai: {str(e)}"
 
-# @st.cache_data
+
+@st.cache_data
 def mermaid_chart(markdown_code):
     new_markdown_code = markdown_code.replace("mermaid", "")
     print("new_markdown_code", new_markdown_code)
@@ -112,7 +163,7 @@ def mermaid_chart(markdown_code):
                 background-color: #f5f5f5;
                 border: 2px solid #ddd;
                 border-radius: 8px;
-                padding: 10px;
+                padding: 100px;
             }}
         </style>
         <div class="mermaid-container">
@@ -140,8 +191,7 @@ def mermaid_chart(markdown_code):
         return f"An error occurred in mermaid_chart: {str(e)}"
 
 
-
-@st.cache_data(experimental_allow_widgets=True)
+# @st.cache_data(experimental_allow_widgets=True)
 def business(model, metatag_system_prompt):
     try:
         if "content_generated" not in st.session_state:
@@ -173,7 +223,7 @@ def business(model, metatag_system_prompt):
         # Predefined question set
         questions = {
             "Summary": "Give me a brief summary of the data uploaded in bullet points without mentioning the column "
-                       "names?", 
+                       "names?",
             "Use_Case": "Give me examples of potential use cases of these datasets?",
             "Relationships": "Are there any relationships within the columns of the data?",
             "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",
@@ -201,7 +251,7 @@ def business(model, metatag_system_prompt):
                     relationshipResponse = output
 
             # Display ERD
-            entityDiagramCode = generate_erd(uploaded_tables, relationshipResponse)
+            entityDiagramCode = generate_erd(uploaded_tables)
 
             st.markdown("### Entity-Relationship Diagram (ERD)")
             if entityDiagramCode is not None:
@@ -212,6 +262,7 @@ def business(model, metatag_system_prompt):
             st.sidebar.download_button("Download Responses", data=storeResponses)
     except Exception as e:
         st.error(f"An error occurred in the business function: {str(e)}")
+
 
 @st.cache_data(experimental_allow_widgets=True)
 def tech(model, metatag_system_prompt):
