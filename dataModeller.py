@@ -1,8 +1,8 @@
 import streamlit as st
 from helperFunctions import business, tech
 import openai
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
+# from azure.identity import DefaultAzureCredential
+# from azure.keyvault.secrets import SecretClient
 import json
 import random
 import time
@@ -26,6 +26,7 @@ with open("config.json") as f:
     key_vault_url = config["KEY_VAULT_URL"]
     deployment_gpt35 = config["gpt3.5"]
     deployment_gpt4 = config["gpt4"]
+
 
 
 
@@ -83,21 +84,30 @@ def generate_response(user_input, conversation_history, model, dataset):
 
 
 
+openai.api_key = "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"
+
+
 def main():
     try:
         metatag_system_prompt = """ 
-            You are Meta Tag Pro, a data specialist and expert SQL Developer with a focus on risk management. In analyzing financial data from a bank, you are required to:
-            - Examine the data with an emphasis on identifying potential risks, such as anomalies, unusual patterns, or signs of fraudulent activities. 
-            - Always make some mention that this is a risk assesment tool. 
-            - Describe the key components and structure of the data file, focusing on elements that are relevant to risk assessment.
-             - Examine the data with an emphasis on identifying potential risks, such as anomalies, unusual patterns, or signs of fraudulent activities.
-             - Describe the key components and structure of the data file, focusing on elements that are relevant to risk assessment.
-            - Outline the data types of the values, the relationships between the data, and check if any dependencies are present in the data
-            - Additionally, identify any potential data inconsistencies or abnormalities that you notice
-            - Generate a SQL table schema and return only a SQL query based on user input to return data that matches said input
-            
-            - Take a breath. The user might interact with the tool in Italian or the data might contain Italian, please reply in English and Italian in brackets after
-        """
+    You are Meta Tag Pro, an AI specialized in analyzing financial data for risk management. Your role involves:
+   - Always respond in English FIRST.
+   - Then follow all answers by an Italian translation in brackets but in the same format as the english. Do not repeat schema info if needed but just the italian instructions and descriptons and context.
+     - Generating SQL table schemas and queries based on user inputs, aimed at extracting data relevant to specific risk assessment inquiries.
+    - Identifying potential risks in bank financial data, such as anomalies, unusual patterns, or signs of fraudulent activities. Use methods like statistical analysis or trend observation for this.
+    - Clearly stating that your analysis is part of a risk assessment initiative for the financial department.
+    - Describing the structure and key components of financial datasets, emphasizing elements crucial for risk assessment (e.g., transaction amounts, account types, timestamps).
+    - Outlining the data types, relationships between data points, and any dependencies or inconsistencies within the data. 
+   
+
+    Example: If a user asks for a SQL Schema for transactions that deviate from the norm over the last quarter, you might suggest:
+    "SELECT * FROM transactions WHERE amount > (SELECT AVG(amount) * 1.5 FROM transactions WHERE date BETWEEN '2023-01-01' AND '2023-03-31');"
+    
+
+    
+    Keep in mind ethical guidelines and data privacy laws, ensuring no sensitive information is disclosed in your responses.
+    Think this through step by step.
+"""
 
         # detect language in the prompt
         # Please make it clear which headers- or give more additional context such as the file name extracted, data uploaded

@@ -227,7 +227,25 @@ def tech(model, metatag_system_prompt):
     # conversation_history.append({"role": "assistant", "content": init_prompt})
     st.title("Technical View")
     st.sidebar.markdown("----")
+    st.markdown('''
+   
+   
+    Please use the "Generate Contents button" to use the following preset prompts. Or use "Get SQL Code" with your own personalised prompt. 
 
+Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni preimpostate. Oppure utilizza "Ottieni codice SQL" con il tuo prompt personalizzato.
+    
+1. **SQL Table Creation**: To create a SQL schema based on provided data, use the prompt: 
+   - "create a SQL schema based on the above data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables."
+2. **Viewing Tabular Data**: For a detailed view of your schema or data in table format, use:
+   - "Provide the tabular view of the above schema"
+
+3. **Generating SQL Code**: To get the SQL code for creating tables with detailed column information, use:
+   - "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in details"
+
+4. **Data Model Visualization**: To understand how your data can be structured in SQL tables with primary 
+   key relationships, use:
+   - "Can you show all the column names, their datatypes in SQL format, brief description and PII in a nice tabular format"
+''')
     query = st.sidebar.text_input("Input your query")
     queryButton = st.sidebar.button("Get SQL code")
 
@@ -250,14 +268,17 @@ def tech(model, metatag_system_prompt):
 
     # Predefined question set
     questions = {
-        "SQL table": "create a SQL schema based on the above data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables.",
-        # 'Table': "Provide the tabular view of the above schema",
-        # 'SQL code': 'Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data splitting the tables with assumed primary and foreign keys',
-        # 'Data Model': 'Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in details',
-        "Tabular Data": "Can you show all the column names, their datatypes in SQL format, brief description and PII in a nice tabular format",
+        "SQL table": "Create a SQL schema based on the above data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables.",
+        "Table": "Provide the tabular view of the above schema",
+        "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, splitting the tables with assumed primary and foreign keys",
+        "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in detail?",
+        "Tabular Data": "Can you show all the column names, their datatypes in SQL format, a brief description, and PII in a nice tabular format?",
+        "Personal Identifiable Information": "Review the provided data or schema and identify all columns that potentially contain Personally Identifiable Information (PII). For each identified PII column, suggest appropriate SQL data types, or other security measures to ensure the protection of this sensitive information.",
+        #schema star
     }
 
-    # for the above table -> the input to the 'get SQL code'
+
+# for the above table -> the input to the 'get SQL code'
     storeResponses = ""
     qCount = 1
     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
@@ -265,7 +286,7 @@ def tech(model, metatag_system_prompt):
             # Modify the prompt to include only the first 20 rows of the dataset
             prompt = "\n".join([message["content"] for message in conversation_history])
             prompt += "\n" + questions[q]
-
+            prompt += "\n" + metatag_system_prompt
             # print(prompt)
             output = generate_response(metatag_system_prompt, prompt, model)
             storeResponses += (
