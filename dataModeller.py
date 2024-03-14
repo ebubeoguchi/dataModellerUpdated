@@ -88,6 +88,7 @@ openai.api_key = "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"
 
 
 def main():
+    model = ""
     try:
         metatag_system_prompt = """ 
     You are Meta Tag Pro, an AI specialized in analyzing financial data for risk management. Your role involves:
@@ -143,7 +144,7 @@ def main():
             model = deployment_gpt35
         elif display_model == "gpt-4":
             model = deployment_gpt4
-
+        print('model', model)
         if choice == "Home":
             home()
         elif choice == "Business View":
@@ -223,16 +224,18 @@ def chatbot(model):
     try:
         # Add a button to restart chat in the top right corner
         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-            st.session_state.messages = []  # Clear chat history
+            st.session_state.user_messages = []  # Clear chat history
+            st.session_state.assistant_messages = []  # Clear chat history
             st.session_state.uploaded_files = []  # Clear uploaded data
 
         st.title("Data Modeller Assistant")
 
+        # Initialize message lists outside the for loop
+        user_messages = st.session_state.user_messages if "user_messages" in st.session_state else []
+        assistant_messages = st.session_state.assistant_messages if "assistant_messages" in st.session_state else []
+
         # Handle file uploading (moved outside the prompt input block)
         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-        # Initialize conversation_history outside the for loop
-        conversation_history = st.session_state.messages if "messages" in st.session_state else []
 
         if uploaded_files:
             # Process each uploaded file
@@ -248,38 +251,32 @@ def chatbot(model):
 
                 # Accept user input
                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-                    # Add user message to conversation history
-                    conversation_history.append({"role": "user", "content": prompt})
+                    # Add user message to user_messages list
+                    user_messages.append({"role": "user", "content": prompt})
 
                     # Generate assistant response using the provided function
-                    assistant_response = generate_response(prompt, conversation_history, model=model, dataset=data)
+                    assistant_response = generate_response(prompt, user_messages + assistant_messages, model=model, dataset=data)
 
-                    # Add assistant response to conversation history
-                    conversation_history.append({"role": "assistant", "content": assistant_response})
+                    # Add assistant response to assistant_messages list
+                    assistant_messages.append({"role": "assistant", "content": assistant_response})
 
-                    # Display user message and assistant response in chat message container
-                    with st.chat_message("user"):
-                        st.markdown(prompt)
-                    with st.chat_message("assistant"):
-                        st.markdown(assistant_response)
+                    # Display each user and assistant message in separate containers
+                    for message in zip(user_messages, assistant_messages):
+                        with st.chat_message(message[0]["role"]):  # Access user role from current message
+                            st.markdown(message[0]["content"])
+                        with st.chat_message(message[1]["role"]):  # Access assistant role from next message
+                            st.markdown(message[1]["content"])
 
                 # Move data outside the for loop
                 st.session_state.uploaded_data = data
 
-            # Display the final chat history after processing all uploaded files
-            st.session_state.messages = conversation_history
-
-            # Flatten the nested list of conversation history for display
-            unique_messages = []  # Initialize a list to store unique messages
-            for message in st.session_state.messages:
-                # Check if the message is not already in the unique_messages list
-                if message not in unique_messages:
-                    unique_messages.append(message)
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
+            # Save the final chat history after processing all uploaded files
+            st.session_state.user_messages = user_messages
+            st.session_state.assistant_messages = assistant_messages
 
     except Exception as e:
         st.error(f"An error occurred in chatbot: {str(e)}")
+
 
 
 # def chatbot(model):

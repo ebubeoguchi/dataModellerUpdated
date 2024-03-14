@@ -3,18 +3,19 @@ import pandas as pd
 import openai
 import re
 from cachetools import cached, TTLCache
+import streamlit.components.v1 as components
 
 
-
-@cached(cache=TTLCache(maxsize=3000, ttl=3000))
+@st.cache_data
 def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
     try:
-        if model not in ["gpt-3.5-turbo-0125", "gpt-4-0125-preview"]:
-            raise ValueError("Invalid model specified. Supported models are 'gpt-3.5-turbo-0125' and 'gpt-4-0125-preview'.")
+        if model not in ["gpt-3.5-turbo-0125", "gpt-4-turbo-preview"]:
+            raise ValueError(
+                "Invalid model specified. Supported models are 'gpt-3.5-turbo-0125' and 'gpt-4'.")
 
         if model == "gpt-3.5-turbo-0125":
             # Reduce the length of the user prompt
-            user_prompt = user_prompt[:4000]
+            user_prompt = user_prompt[:4010]
 
             # Reduce the length of the system prompt
             system_prompt = system_prompt[:2047]
@@ -28,7 +29,7 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                 ],
                 model=model,
                 max_tokens=max_tokens,
-                temperature=0.3,
+                temperature=0.5,
             )
 
             # Check if the response exceeds the token limit
@@ -37,68 +38,117 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                 response["choices"][0]["message"]["content"] = response["choices"][0]["message"]["content"][:max_tokens]
 
             return response["choices"][0]["message"]["content"].strip()
-        
-        elif model == "gpt-4-0125-preview":
+
+        elif model == "gpt-4-turbo-preview":
             response = openai.ChatCompletion.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            model=model,
-            max_tokens=4096,
-            temperature=0.3,)
-            
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                model=model,
+                max_tokens=4096,
+                temperature=0.4)
+
             return response["choices"][0]["message"]["content"].strip()
 
-    
+
     except Exception as e:
         # Handle exceptions, you can customize this part based on your needs
         print(f"Error: {str(e)}")
         return "An error occurred while generating the response."
 
 
-
 def get_text():
     input_text = st.text_input("You: ", "", key="input")
     return input_text
 
-
-
-def generate_erd(relationships):
+@st.cache_data
+def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
     try:
+        # Combine all dataframes into a single dataframe
+        combined_df = pd.concat(dataset.values())
+
+        # Convert all columns to strings
+        combined_df = combined_df.astype(str)
+
+        # Get a list of all unique values across all columns (potential entities)
+        entities = combined_df.values.flatten().tolist()
+
+        # Convert the list to a comma-separated string
+        unique_entities = ", ".join(set(entities))
+
+        # Craft the prompt, incorporating actual data as examples
+        prompt = [
+            {"role": "system", "content": f"Find any relationships within the data below. Examples of data points include: {unique_entities}."},
+            {"role": "user", "content": combined_df.to_string(index=False)}
+        ]
+
+        # Send the prompt to GPT-4
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0125-preview",
+            messages=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        print('Response', response)
+
+        # Extract the generated text
+        content = response["choices"][0]["message"]["content"]
+
+        # Extract relationships using the same approach (can be improved)
+        # match = re.findall(
+        #     r"(?P<entity1>\w+\s?\w+)\s*(?:relates to|has a relationship with|is associated with)\s*(?P<entity2>\w+\s?\w+)",
+        #     content)
+
+        # Construct the relationships string
+        # relationships = "\n".join([f"- {entity1} {relationship} {entity2}" for entity1, entity2, relationship in match])
+
+        return content
+
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
+
+
+@st.cache_data
+def generate_erd(data):
+    try:
+        relationships = generate_relationships(data)
+
+        print("relationships", relationships)
         # Use OpenAI to generate ERD code based on relationships
         prompt = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": f"You are a data modeller. You have to create markdown code for Entity Relationship diagram for mermaid.js library using the following information:{relationships}"},
-            {"role": "assistant", "content": "Create the mermaid.js code for the Entity Relationship Diagram"}
+            {"role": "system", "content": "You are a helpful assistant and a data modeller."},
+            {"role": "user",
+             "content": f"Create a markdown code for Entity Relationship diagram for mermaid.js library using the following relationships:\n{relationships}"},
         ]
         response = openai.ChatCompletion.create(
             model="gpt-4-0125-preview",
             messages=prompt,
-            max_tokens=4090,
-            temperature = 0.5
+            max_tokens=4096,
+            temperature=0.8
         )
-    
 
         content = response["choices"][0]["message"]["content"]
         match = re.search(r"```mermaid(.*?)```", content, re.DOTALL)
 
         if match:
-            # print('Match!!!!!')
+            print('Match!!!!!')
             erd_content = match.group(1)
+            print('erd_content', erd_content)
             return erd_content
         else:
             return "No content found between triple single-quotes."
-
-        
 
         # return erd_code
     except Exception as e:
         return f"An error occurred in generate_erd_openai: {str(e)}"
 
 
+@st.cache_data
 def mermaid_chart(markdown_code):
     new_markdown_code = markdown_code.replace("mermaid", "")
+    print("new_markdown_code", new_markdown_code)
 
     try:
         html_code = f"""
@@ -113,7 +163,7 @@ def mermaid_chart(markdown_code):
                 background-color: #f5f5f5;
                 border: 2px solid #ddd;
                 border-radius: 8px;
-                padding: 10px;
+                padding: 100px;
             }}
         </style>
         <div class="mermaid-container">
@@ -134,18 +184,22 @@ def mermaid_chart(markdown_code):
                 panzoom.zoomWithWheel(e);
             }});
         </script>
-        """ 
+        """
+        # print('htmlcode', html_code)
         return html_code
     except Exception as e:
         return f"An error occurred in mermaid_chart: {str(e)}"
 
 
+# @st.cache_data(experimental_allow_widgets=True)
 def business(model, metatag_system_prompt):
     try:
         if "content_generated" not in st.session_state:
             st.session_state.content_generated = False
 
+        uploaded_tables = {}
         conversation_history = []
+
         st.title("Business View")
         st.sidebar.markdown("----")
 
@@ -153,29 +207,26 @@ def business(model, metatag_system_prompt):
             "Select the source code to interpret", accept_multiple_files=True
         )
 
-        # Create a dictionary to store uploaded tables
-        uploaded_tables = {}
-
         for uploaded_file in uploaded_files:
             code_txt = uploaded_file.getvalue()
-            content = str(uploaded_file.name) + " " + str(code_txt)
+            dataframe = pd.read_csv(uploaded_file)  # Read the entire dataset
+            uploaded_tables[uploaded_file.name] = dataframe
+            content = str(uploaded_file.name) + " " + str(code_txt)  # Include filename and content
             conversation_history.append({"role": "user", "content": content})
-            dataframe = pd.read_csv(uploaded_file, nrows=20)  # Read only the first 20 rows
-            uploaded_tables[uploaded_file.name] = dataframe  # Store dataframe in dictionary
-            # Use st.beta_expander for expandable file preview
+
+            # File preview code
             with st.expander(f"File Preview: {uploaded_file.name}"):
                 st.table(dataframe)
-            # st.write("filename:", uploaded_file.name)
-            # st.table(dataframe)
 
         st.sidebar.markdown("----")
 
         # Predefined question set
         questions = {
-            "Summary": "Give me a brief summary of the data uploaded in bullet points without mentioning the column names?",
-            "Use_Case": "Give me examples of potential use cases of these dataset?",
+            "Summary": "Give me a brief summary of the data uploaded in bullet points without mentioning the column "
+                       "names?",
+            "Use_Case": "Give me examples of potential use cases of these datasets?",
             "Relationships": "Are there any relationships within the columns of the data?",
-            "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",  # DATA CATALOGUE
+            "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",
         }
 
         storeResponses = ""
@@ -184,11 +235,8 @@ def business(model, metatag_system_prompt):
 
         if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
             for q in questions:
-                # Modify the prompt to include only the first 20 rows of the dataset
                 prompt = "\n".join([message["content"] for message in conversation_history])
                 prompt += "\n" + questions[q]
-                print("metatag_system_prompt", metatag_system_prompt)
-                print("prompt", prompt)
 
                 output = generate_response(metatag_system_prompt, prompt, model)
                 storeResponses += f"Q{qCount}. {questions[q]}\n\n{output}\n\n\n\n"
@@ -199,26 +247,24 @@ def business(model, metatag_system_prompt):
                     if q in ["README", "Code"]:
                         st.button(f"Download {q}")
 
-                # add relationships response to a variable
-                if q == "Relationships":  # Check if it's the Relationships question
+                if q == "Relationships":
                     relationshipResponse = output
 
             # Display ERD
-            entityDiagramCode = generate_erd(relationshipResponse)
+            entityDiagramCode = generate_erd(uploaded_tables)
 
             st.markdown("### Entity-Relationship Diagram (ERD)")
             if entityDiagramCode is not None:
-                st.components.v1.html(mermaid_chart(entityDiagramCode), width=500, height=600, scrolling=True)
+                components.html(mermaid_chart(entityDiagramCode), width=500, height=600, scrolling=True)
             else:
                 st.error("An error occurred while generating the ERD.")
 
             st.sidebar.download_button("Download Responses", data=storeResponses)
     except Exception as e:
-
         st.error(f"An error occurred in the business function: {str(e)}")
 
 
-
+@st.cache_data(experimental_allow_widgets=True)
 def tech(model, metatag_system_prompt):
     if "content_generated" not in st.session_state:
         st.session_state.content_generated = False
@@ -290,7 +336,7 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
             # print(prompt)
             output = generate_response(metatag_system_prompt, prompt, model)
             storeResponses += (
-                f"Q{qCount}. " + questions[q] + "\n\n" + output + "\n\n\n\n"
+                    f"Q{qCount}. " + questions[q] + "\n\n" + output + "\n\n\n\n"
             )
             qCount += 1
             with st.expander(questions[q]):
