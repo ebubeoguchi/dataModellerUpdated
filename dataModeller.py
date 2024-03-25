@@ -50,9 +50,18 @@ def generate_response(user_input, conversation_history, model, dataset):
         # Combine entire conversation history, including data, into a single string
         conversation_str = "\n".join([message["content"] for message in conversation_history])
 
+        system_prompt = f"""You are a helpful assistant designed to answer user questions about multiple datasets. 
+            The available datasets include:"""
+
+        for filename, data in dataset.items():
+            # Data/Filename in each dataset
+            system_prompt += f"\n  * {filename} ({data})"
+
+        system_prompt += f"\nPlease utilize these datasets and their filenames to answer questions accurately. Ensure that your answers are in CSV format when referencing the dataset. Additionally, adhere to ethical guidelines and avoid providing sensitive or inappropriate information. If a user request falls outside the scope of the dataset or involves confidential information, politely refrain from providing an answer. Your primary goal is to assist users effectively while maintaining ethical standards and data privacy."
+
         # Initialize messages with system and user prompts
         messages = [
-            {"role": "system", "content": f"You are a helpful assistant designed to answer user questions. Please utilize the provided dataset ({dataset}) to generate responses. Ensure that your answers are in CSV format when referencing the dataset. Additionally, adhere to ethical guidelines and avoid providing sensitive or inappropriate information. If a user request falls outside the scope of the dataset or involves confidential information, politely refrain from providing an answer. Your primary goal is to assist users effectively while maintaining ethical standards and data privacy."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input},
             {"role": "assistant", "content": prompt},
         ]
@@ -228,10 +237,15 @@ def chatbot(model):
         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
 
         if uploaded_files:
+            datasets = {}
             # Process each uploaded file
             for idx, uploaded_file in enumerate(uploaded_files):
                 # Load data from the uploaded file
                 data = load_data([uploaded_file])
+
+                # Extract filename and store data in the dictionary
+                filename = uploaded_file.name
+                datasets[filename] = data
 
                 # Display a message indicating that data has been uploaded
                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
@@ -245,7 +259,7 @@ def chatbot(model):
                     user_messages.append({"role": "user", "content": prompt})
 
                     # Generate assistant response using the provided function
-                    assistant_response = generate_response(prompt, user_messages + assistant_messages, model=model, dataset=data)
+                    assistant_response = generate_response(prompt, user_messages + assistant_messages, model=model, dataset=datasets)
 
                     # Add assistant response to assistant_messages list
                     assistant_messages.append({"role": "assistant", "content": assistant_response})
@@ -268,132 +282,6 @@ def chatbot(model):
         st.error(f"An error occurred in chatbot: {str(e)}")
 
 
-
-# def chatbot(model):
-#     try:
-#         # Add a button to restart chat in the top right corner
-#         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-#             st.session_state.messages = []  # Clear chat history
-#             st.session_state.uploaded_files = []  # Clear uploaded data
-
-#         st.title("Data Modeller Assistant")
-
-#         # Handle file uploading (moved outside the prompt input block)
-#         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-#         if uploaded_files:
-#             conversation_history = []  # Initialize an empty list to store conversation history
-#             # Process each uploaded file
-#             for idx, uploaded_file in enumerate(uploaded_files):
-#                 # Load data from the uploaded file
-#                 data = load_data([uploaded_file])
-
-#                 # Display a message indicating that data has been uploaded
-#                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
-
-#                 # Pass the dataset as context for the chatbot
-#                 dataset_context = "\n".join(data.astype(str).apply(lambda x: ';'.join(x), axis=1).tolist())
-
-#                 # Accept user input
-#                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-#                     # Add user message to conversation history
-#                     conversation_history.append({"role": "user", "content": prompt})
-
-#                     # Generate assistant response using the provided function
-#                     assistant_response = generate_response(prompt, conversation_history, model=model, dataset=data)
-
-#                     # Add assistant response to conversation history
-#                     conversation_history.append({"role": "assistant", "content": assistant_response})
-
-#                     # Display user message and assistant response in chat message container
-#                     with st.chat_message("user"):
-#                         st.markdown(prompt)
-#                     with st.chat_message("assistant"):
-#                         st.markdown(assistant_response)
-
-#                 # Move data outside the for loop
-#                 st.session_state.uploaded_data = data
-
-#             # Display the final chat history after processing all uploaded files
-#             st.session_state.messages.append(conversation_history)
-
-#             # Flatten the nested list of conversation history for display
-#             flat_history = [message for sublist in st.session_state.messages for message in sublist]
-#             unique_messages = []  # Initialize a list to store unique messages
-#             for message in flat_history:
-#                 # Check if the message is not already in the unique_messages list
-#                 if message not in unique_messages:
-#                     unique_messages.append(message)
-#                     print("unique_messages", unique_messages)
-#                     with st.chat_message(message["role"]):
-#                         st.markdown(message["content"])
-
-#     except Exception as e:
-#         st.error(f"An error occurred in chatbot: {str(e)}")
-
-
-# def chatbot(model):
-#     try:
-#         # Add a button to restart chat in the top right corner
-#         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-#             st.session_state.messages = []  # Clear chat history
-#             st.session_state.uploaded_files = []  # Clear uploaded data
-
-#         st.title("Data Modeller Assistant")
-
-#         # Handle file uploading (moved outside the prompt input block)
-#         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-#         conversation_history = []  # Initialize an empty list to store conversation history
-
-#         if uploaded_files:
-#             # Process each uploaded file
-#             for idx, uploaded_file in enumerate(uploaded_files):
-#                 # Load data from the uploaded file
-#                 data = load_data([uploaded_file])
-
-#                 # Display a message indicating that data has been uploaded
-#                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
-
-#                 # Pass the dataset as context for the chatbot
-#                 dataset_context = "\n".join(data.astype(str).apply(lambda x: ';'.join(x), axis=1).tolist())
-
-#                 # Accept user input
-#                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-#                     # Add user message to conversation history
-#                     conversation_history.append({"role": "user", "content": prompt})
-
-#                     # Generate assistant response using the provided function
-#                     assistant_response = generate_response(prompt, conversation_history, model=model, dataset=data)
-
-#                     # Add assistant response to conversation history
-#                     conversation_history.append({"role": "assistant", "content": assistant_response})
-
-#                     # Display user message and assistant response in chat message container
-#                     with st.chat_message("user"):
-#                         st.markdown(prompt)
-#                     with st.chat_message("assistant"):
-#                         st.markdown(assistant_response)
-
-#                 # Move data outside the for loop
-#                 st.session_state.uploaded_data = data
-
-#         # Display the final chat history after processing all uploaded files
-#         st.session_state.messages.append(conversation_history)
-
-#         # Flatten the nested list of conversation history for display
-#         flat_history = [message for sublist in st.session_state.messages for message in sublist]
-#         unique_messages = []  # Initialize a list to store unique messages
-#         for message in flat_history:
-#             # Check if the message is not already in the unique_messages list
-#             if message not in unique_messages:
-#                 unique_messages.append(message)
-#                 with st.chat_message(str(message["role"])):
-#                     st.markdown(str(message["content"]))
-
-
-#     except Exception as e:
-#         st.error(f"An error occurred in chatbot: {str(e)}")
 
 
 def process_and_ask_questions(data, model):
@@ -425,208 +313,6 @@ def process_and_ask_questions(data, model):
     except Exception as e:
         st.error(f"An error occurred in process_and_ask_questions: {str(e)}")
 
-
-
-# def chatbot(model):
-#     try:
-#         # Add a button to restart chat in the top right corner
-#         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-#             st.session_state.messages = []  # Clear chat history
-#             st.session_state.uploaded_files = []  # Clear uploaded data
-
-#         st.title("Data Modeller Assistant")
-
-#         # Handle file uploading (moved outside the prompt input block)
-#         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-#         if uploaded_files:
-#             # Process each uploaded file
-#             for idx, uploaded_file in enumerate(uploaded_files):
-#                 # Load data from the uploaded file
-#                 data = load_data([uploaded_file])
-
-#                 # Display a message indicating that data has been uploaded
-#                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
-
-#                 # Pass the dataset as context for the chatbot
-#                 dataset_context = "\n".join(data.astype(str).apply(lambda x: ';'.join(x), axis=1).tolist())
-
-#                 # Accept user input
-#                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-#                     # Add user message to chat history
-#                     st.session_state.messages.append({"role": "user", "content": prompt})
-#                     # Display user message in chat message container
-#                     with st.chat_message("user"):
-#                         st.markdown(prompt)
-
-#                     # Generate assistant response using the provided function
-#                     assistant_response = generate_response(prompt, st.session_state.messages, model=model, dataset=data)
-
-#                     # Display assistant response in chat message container
-#                     with st.chat_message("assistant"):
-#                         st.markdown(assistant_response)
-
-#                     # Add assistant response to chat history
-#                     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-
-#                 # Move data outside the for loop
-#                 st.session_state.uploaded_data = data
-
-#             # Display the final chat history after processing all uploaded files
-#             final_messages = st.session_state.messages[-(idx + 1):]  # Display the latest conversation
-#             print('final_message', final_messages)
-#             for message in final_messages:
-#                 with st.chat_message(message["role"]):
-#                     st.markdown(message["content"])
-
-#     except Exception as e:
-#         st.error(f"An error occurred in chatbot: {str(e)}")
-
-
-# def chatbot(model):
-#     try:
-#         # Add a button to restart chat in the top right corner
-#         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-#             st.session_state.messages = []  # Clear chat history
-#             st.session_state.uploaded_files = []  # Clear uploaded data
-
-#         st.title("Data Modeller Assistant")
-
-#         # Handle file uploading (moved outside the prompt input block)
-#         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-#         if uploaded_files:
-#             # Process each uploaded file
-#             for idx, uploaded_file in enumerate(uploaded_files):
-#                 # Load data from the uploaded file
-#                 data = load_data([uploaded_file])
-
-#                 # Display a message indicating that data has been uploaded
-#                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
-
-#                 # Pass the dataset as context for the chatbot
-#                 dataset_context = "\n".join(data.astype(str).apply(lambda x: ';'.join(x), axis=1).tolist())
-
-#                 # Accept user input
-#                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-#                     # Add user message to chat history
-#                     st.session_state.messages.append({"role": "user", "content": prompt})
-#                     # Display user message in chat message container
-#                     with st.chat_message("user"):
-#                         st.markdown(prompt)
-
-#                     # Generate assistant response using the provided function
-#                     assistant_response = generate_response(prompt, st.session_state.messages, model=model, dataset=data)
-
-#                     # Display assistant response in chat message container
-#                     with st.chat_message("assistant"):
-#                         st.markdown(assistant_response)
-
-#                     # Add assistant response to chat history
-#                     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-
-#                 # Move data outside the for loop
-#                 st.session_state.uploaded_data = data
-
-#             # Display the final chat history after processing all uploaded files
-#             for message in st.session_state.messages:
-#                 with st.chat_message(message["role"]):
-#                     st.markdown(message["content"])
-
-#     except Exception as e:
-#         st.error(f"An error occurred in chatbot: {str(e)}")
-
-
-
-# def chatbot(model):
-#     try:
-#         # Add a button to restart chat in the top right corner
-#         if st.button("Restart Chat", key="restart_chat_button", help="restart-chat-button"):
-#             st.session_state.messages = []  # Clear chat history
-#             st.session_state.uploaded_files = []  # Clear uploaded data
-
-#         st.title("Data Modeller Assistant")
-
-#         # Handle file uploading (moved outside the prompt input block)
-#         uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
-
-#         if uploaded_files:
-#             # Display the chat history
-#             for message in st.session_state.messages:
-#                 if message["role"] == "user":
-#                     with st.chat_message("user"):
-#                         st.markdown(message["content"])
-#                 elif message["role"] == "assistant":
-#                     with st.chat_message("assistant"):
-#                         st.markdown(message["content"])
-
-#             # Process each uploaded file
-#             for idx, uploaded_file in enumerate(uploaded_files):
-#                 # Load data from the uploaded file
-#                 data = load_data([uploaded_file])
-
-#                 # Display a message indicating that data has been uploaded
-#                 st.success("Data has been successfully uploaded. You can now interact with the chatbot.")
-
-#                 # Pass the dataset as context for the chatbot
-#                 dataset_context = "\n".join(data.astype(str).apply(lambda x: ';'.join(x), axis=1).tolist())
-
-#                 # Display the chat history
-#                 for message in st.session_state.messages:
-#                     with st.chat_message(message["role"]):
-#                         st.markdown(message["content"])
-
-#                 # Accept user input
-#                 if prompt := st.chat_input(f"What is up? ({idx})", key=f"chat_input_{idx}"):
-#                     # Add user message to chat history
-#                     st.session_state.messages.append({"role": "user", "content": prompt})
-#                     # Display user message in chat message container
-#                     with st.chat_message("user"):
-#                         st.markdown(prompt)
-
-#                     # Generate assistant response using the provided function
-#                     assistant_response = generate_response(prompt, st.session_state.messages, model=model, dataset=data)
-
-#                     # Display assistant response in chat message container
-#                     with st.chat_message("assistant"):
-#                         st.markdown(assistant_response)
-
-#                     # Add assistant response to chat history
-#                     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-
-#                 # Move data outside the for loop
-#                 st.session_state.uploaded_data = data
-#     except Exception as e:
-#         st.error(f"An error occurred in chatbot: {str(e)}")
-
-
-# def process_and_ask_questions(data, model):
-#     try:
-#         # Convert data to a string format for chatbot input
-#         csv_buffer = io.StringIO()
-#         data.to_csv(csv_buffer, index=False, sep=";")
-#         data_str = csv_buffer.getvalue()
-
-#         # Split the data_str into chunks to fit the model's maximum context length
-#         chunk_size = 4097
-#         data_chunks = [data_str[i:i + chunk_size] for i in range(0, len(data_str), chunk_size)]
-
-#         # Initialize messages with system and user prompts
-#         messages = [
-#             {"role": "system", "content": f"You are a helpful assistant"},
-#             {"role": "user", "content": "Interactively chat about the uploaded data."},
-#         ]
-
-#         # Generate response for each chunk of data
-#         for chunk in data_chunks:
-#             messages[-1]["content"] = chunk  # Update the user message content
-#             response = generate_response(chunk, messages, model=model)
-#             messages.append({"role": "assistant", "content": response})
-
-#         # Display chat messages for user input and assistant response
-#         st.session_state.messages.extend(messages)
-#     except Exception as e:
-#         st.error(f"An error occurred in process_and_ask_questions: {str(e)}")
 
 
 

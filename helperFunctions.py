@@ -76,10 +76,11 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
 
         # Convert the list to a comma-separated string
         unique_entities = ", ".join(set(entities))
+        datas = combined_df.to_string(index=False)
 
         # Craft the prompt, incorporating actual data as examples
         prompt = [
-            {"role": "system", "content": f"Find any relationships within the data below. Examples of data points include: {unique_entities}."},
+            {"role": "system", "content": f"Find any relationships within the data {datas}. Examples of data points include: {unique_entities}."},
             {"role": "user", "content": combined_df.to_string(index=False)}
         ]
 
@@ -126,7 +127,7 @@ def generate_erd(data):
             model="gpt-4-0125-preview",
             messages=prompt,
             max_tokens=4096,
-            temperature=0.8
+            temperature=0.5
         )
 
         content = response["choices"][0]["message"]["content"]
