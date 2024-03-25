@@ -172,7 +172,7 @@ def home():
         """Data Modeller is a powerful tool that drives data management efficiency, assists with data analysis, providing SQL code by leveraging cutting-edge LLMs. \n
     • Easily understand existing datasets with structured, human-readable descriptions and automated metadata management. \n
     • Advanced capabilities include generating data product descriptions, creating data dictionaries and suggesting potential use cases and improvements, accelerating technical documentation creation. \n
-    • Identify PII and sensitive information, providing an extra layer of governance to your data management processes. \n
+    • Identify sensitive information, providing an extra layer of governance to your data management processes. \n
     • For the technical user, the Data Assistant can provide SQL code based on plain english user input in proper code format from the data provided. \n
     • The Data Assistant can propose potential improvements in the structure/architecture of the data provided. \n
     """

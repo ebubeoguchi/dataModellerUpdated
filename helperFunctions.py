@@ -227,7 +227,7 @@ def business(model, metatag_system_prompt):
                        "names?",
             "Use_Case": "Give me examples of potential use cases of these datasets?",
             "Relationships": "Are there any relationships within the columns of the data?",
-            "Tabular Data": "Provide a table listing all column names, data types, description, and PII information?",
+            "Tabular Data": "Provide a table listing all column names, data types and description?",
         }
 
         storeResponses = ""
@@ -291,7 +291,7 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
 
 4. **Data Model Visualization**: To understand how your data can be structured in SQL tables with primary 
    key relationships, use:
-   - "Can you show all the column names, their datatypes in SQL format, brief description and PII in a nice tabular format"
+   - "Can you show all the column names, their datatypes in SQL format and brief description in a nice tabular format"
 ''')
     query = st.sidebar.text_input("Input your query")
     queryButton = st.sidebar.button("Get SQL code")
@@ -319,8 +319,7 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
         "Table": "Provide the tabular view of the above schema",
         "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, splitting the tables with assumed primary and foreign keys",
         "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in detail?",
-        "Tabular Data": "Can you show all the column names, their datatypes in SQL format, a brief description, and PII in a nice tabular format?",
-        "Personal Identifiable Information": "Review the provided data or schema and identify all columns that potentially contain Personally Identifiable Information (PII). For each identified PII column, suggest appropriate SQL data types, or other security measures to ensure the protection of this sensitive information.",
+        "Tabular Data": "Can you show all the column names, their datatypes in SQL format and a brief description in a nice tabular format?",
         #schema star
     }
 
