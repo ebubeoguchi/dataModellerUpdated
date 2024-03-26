@@ -292,9 +292,13 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
 4. **Data Model Visualization**: To understand how your data can be structured in SQL tables with primary 
    key relationships, use:
    - "Can you show all the column names, their datatypes in SQL format and brief description in a nice tabular format"
+   
+5. **SQL Star Schema**": To understand how the following datasets can be organized into a star schema using fact table and dimension table. Use:
+   - "Star Schema"
 ''')
     query = st.sidebar.text_input("Input your query")
     queryButton = st.sidebar.button("Get SQL code")
+
 
     st.sidebar.markdown("----")
 
@@ -315,12 +319,48 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
 
     # Predefined question set
     questions = {
-        "SQL table": "Create a SQL schema based on the above data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables.",
+        "SQL table": "Create a SQL schema based on the above data, breaking it into meaningful tables with primary "
+                     "keys and also provide a tabular view of those tables.",
         "Table": "Provide the tabular view of the above schema",
-        "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, splitting the tables with assumed primary and foreign keys",
-        "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in detail?",
-        "Tabular Data": "Can you show all the column names, their datatypes in SQL format and a brief description in a nice tabular format?",
-        #schema star
+        "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, "
+                    "splitting the tables with assumed primary and foreign keys",
+        "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this "
+                      "data with primary key relationships in detail?",
+        "Tabular Data": "Can you show all the column names, their datatypes in SQL format and a brief description in "
+                        "a nice tabular format?",
+        "Star Schema": "Objective: Develop a comprehensive Star schema for banking analytics. This schema should "
+                       "effectively organize transactional data and related dimensions to support efficient querying "
+                       "and insights extraction. Fact Table Identification: Begin by reviewing the dataset to "
+                       "identify tables that can serve as fact tables. Look for tables containing transaction "
+                       "records, which are central to banking analytics. These tables should include measurable "
+                       "metrics like transaction amounts, interest rates, and fee charges. Ensure these tables "
+                       "contain or are linked via foreign keys to other relevant tables, facilitating a connection to "
+                       "various dimensions.Dimension Table Selection: Identify tables that will serve as dimension "
+                       "tables. These are crucial for providing context to our fact data, including customer "
+                       "demographics, account types, product details, and temporal aspects. Dimension tables add "
+                       "depth to the analysis, enabling detailed segmentation and trend identification.Relationship "
+                       "Analysis: Carefully examine how each potential fact table relates to the identified dimension "
+                       "tables. This step involves scrutinizing foreign key relationships and matching field names to "
+                       "ensure a logical and business-relevant connection between tables. The goal is to directly "
+                       "link each dimension table to at least one fact table, creating a star-like structure centered "
+                       "around each fact table. "
+                       "Star Schema Layout Proposal: Propose a detailed Star schema configuration, highlighting the "
+                       "chosen central fact table(s) and their directly linked dimension tables. Provide clear "
+                       "examples of foreign key relationships or common fields that facilitate these connections. "
+                       "This layout should reflect the intricacies of banking operations and analytics requirements. "
+                       "Complex Data Structure Handling: Address scenarios with multiple fact tables serving distinct "
+                       "analytical functions (e.g., daily transactions versus long-term loan performance). Assess the "
+                       "feasibility of integrating disparate data into a unified fact table or the necessity of "
+                       "developing separate, related Star schemas or a more complex snowflake schema to accommodate "
+                       "these varied analytical needs. Schema Example: Based on the dataset provided, outline an "
+                       "example Star schema relevant to the banking sector. Include a diagram or a tabular "
+                       "representation illustrating the fact table(s), dimension tables, and their interconnections, "
+                       "ensuring it serves as a practical example of the Star schema principles discussed. "
+                       "Deliverable: A well-structured Star schema design that enhances data accessibility and "
+                       "analysis for banking operations, supported by examples and diagrams where applicable. This "
+                       "schema should enable stakeholders to derive meaningful insights efficiently and support a "
+                       "wide range of analytical applications within the banking sector. "
+                       "FINALLY suggest a SQL schema example to showcase this."
     }
 
 
