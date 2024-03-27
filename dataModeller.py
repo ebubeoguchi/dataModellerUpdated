@@ -93,7 +93,7 @@ def generate_response(user_input, conversation_history, model, dataset):
 
 
 
-openai.api_key = "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"
+
 
 
 def main():
