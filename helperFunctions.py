@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import openai
 import re
-from cachetools import cached, TTLCache
 import streamlit.components.v1 as components
 
 
@@ -96,14 +95,6 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
 
         # Extract the generated text
         content = response["choices"][0]["message"]["content"]
-
-        # Extract relationships using the same approach (can be improved)
-        # match = re.findall(
-        #     r"(?P<entity1>\w+\s?\w+)\s*(?:relates to|has a relationship with|is associated with)\s*(?P<entity2>\w+\s?\w+)",
-        #     content)
-
-        # Construct the relationships string
-        # relationships = "\n".join([f"- {entity1} {relationship} {entity2}" for entity1, entity2, relationship in match])
 
         return content
 
