@@ -62,91 +62,142 @@ def get_text():
     input_text = st.text_input("You: ", "", key="input")
     return input_text
 
-@st.cache_data
-def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
-    try:
-        # Combine all dataframes into a single dataframe
-        combined_df = pd.concat(dataset.values())
+def extract_erd_code(markdown_text):
+  """Extracts the ERD code block from the given Markdown text.
 
-        # Convert all columns to strings
-        combined_df = combined_df.astype(str)
+  Args:
+      markdown_text: The Markdown text containing the ERD code.
 
-        # Get a list of all unique values across all columns (potential entities)
-        entities = combined_df.values.flatten().tolist()
-
-        # Convert the list to a comma-separated string
-        unique_entities = ", ".join(set(entities))
-        datas = combined_df.to_string(index=False)
-
-        # Craft the prompt, incorporating actual data as examples
-        prompt = [
-            {"role": "system", "content": f"Find any relationships within the data {datas}. Examples of data points include: {unique_entities}."},
-            {"role": "user", "content": combined_df.to_string(index=False)}
-        ]
-
-        # Send the prompt to GPT-4
-        response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
-            messages=prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-        print('Response', response)
-
-        # Extract the generated text
-        content = response["choices"][0]["message"]["content"]
-
-        # Extract relationships using the same approach (can be improved)
-        # match = re.findall(
-        #     r"(?P<entity1>\w+\s?\w+)\s*(?:relates to|has a relationship with|is associated with)\s*(?P<entity2>\w+\s?\w+)",
-        #     content)
-
-        # Construct the relationships string
-        # relationships = "\n".join([f"- {entity1} {relationship} {entity2}" for entity1, entity2, relationship in match])
-
-        return content
-
-    except Exception as e:
-        return f"An error occurred: {str(e)}"
+  Returns:
+      The extracted ERD code block (everything between '`mermaid' and the next '`'),
+      or None if no ERD code is found.
+  """
+  match = re.search(r"`mermaid\n(.*?)\n`", markdown_text, flags=re.DOTALL)
+  if match:
+    return match.group(1)
+  else:
+    return None
 
 
-@st.cache_data
+# @st.cache_data
+def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
+  """Analyzes a dataset and identifies relationships and keys.
+
+  Args:
+      dataset: A dictionary where keys are filenames and values are dataframes.
+      max_tokens: Maximum number of tokens for GPT-4 response (default: 4096).
+      temperature: Temperature for controlling randomness in GPT-4 response (default: 0.9).
+
+  Returns:
+      String containing identified relationships and keys, or error message.
+  """
+  try:
+    print("Dataset:", dataset)
+
+    # Combine all dataframes
+    combined_df = pd.concat(dataset.values())
+
+    # Craft a comprehensive prompt for LLM
+    prompt = [
+        {"role": "system", "content": "You are a knowledgeable data modeler and relationship expert."},
+        {"role": "user",
+         "content": f"""Please analyze the following dataset and identify:
+                    1. Relationships between entities, including their types (one-to-one, one-to-many, many-to-many).
+                    2. Primary key for each file's dataset information by using Dataset (a dictionary where key is filename and value are the dataset rows):\n{dataset}"""}
+    ]
+
+    # Send the prompt to GPT-4
+    response = openai.ChatCompletion.create(
+        model="gpt-4-0125-preview",
+        messages=prompt,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+
+    # Extract relationships and keys from LLM's response
+    relationships = response["choices"][0]["message"]["content"]  # Assume LLM provides both in a structured format
+
+    return relationships
+
+  except Exception as e:
+    return f"An error occurred: {str(e)}"
+
+
+# @st.cache_data
 def generate_erd(data):
-    try:
-        relationships = generate_relationships(data)
+  """Generates markdown code for an ERD based on relationships and keys.
 
-        print("relationships", relationships)
-        # Use OpenAI to generate ERD code based on relationships
-        prompt = [
-            {"role": "system", "content": "You are a helpful assistant and a data modeller."},
-            {"role": "user",
-             "content": f"Create a markdown code for Entity Relationship diagram for mermaid.js library using the following relationships:\n{relationships}"},
-        ]
-        response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
-            messages=prompt,
-            max_tokens=4096,
-            temperature=0.5
-        )
+  Args:
+      data: A dictionary containing dataset information.
 
-        content = response["choices"][0]["message"]["content"]
-        match = re.search(r"```mermaid(.*?)```", content, re.DOTALL)
+  Returns:
+      String containing the generated ERD code in markdown format, or error message.
+  """
+  try:
+    relationships_and_keys = generate_relationships_and_keys(data)
+    print("Relationships and Keys:", relationships_and_keys)
+    erd_example = '''
+                 erDiagram
+                    SHORTFALL {
+                        string DAT_RIF
+                        string COD_ABI
+                        string COD_EXP
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string DAT_RIF_COD_ABI_COD_EXP_COD_OPERAZ PK
+                    }
+                    EXEMPTIONS {
+                        string COD_ABI
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string COD_ABI_COD_OPERAZ PK
+                    }
+                    EXPOSURES {
+                        string DAT_RIF
+                        string COD_ABI
+                        string COD_EXP
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string DAT_RIF_COD_ABI_COD_EXP_COD_OPERAZ PK
+                    }
+                    SHORTFALL ||--o{ EXEMPTIONS : "has"
+                    SHORTFALL ||--o{ EXPOSURES : "has"
+                    EXEMPTIONS }o--o{ EXPOSURES : "indirectly related through SHORTFALL'''
 
-        if match:
-            print('Match!!!!!')
-            erd_content = match.group(1)
-            print('erd_content', erd_content)
-            return erd_content
-        else:
-            return "No content found between triple single-quotes."
+    # Use OpenAI to generate ERD code based on information
+    prompt = [
+        {"role": "system", "content": "You are a helpful assistant and a data modeler."},
+        {"role": "user",
+         "content":
+             f"""Create markdown code for an Entity Relationship diagram using the mermaid.js library, 
+                    showing the following relationships and keys:\n{relationships_and_keys}. 
+                    Make sure it is a good, correct and effective markdown code that can be used with mermaid.js, do not include class markdown code.
+                    Use the below Markdown Code in Example as context on how to create one for the given relationships and keys
+                    Example:
+                    {erd_example}
+                   
+                 """}]
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-4-0125-preview",
+        messages=prompt,
+        max_tokens=4096,
+        temperature=0.6
+    )
 
-        # return erd_code
-    except Exception as e:
-        return f"An error occurred in generate_erd_openai: {str(e)}"
+    # Extract the generated ERD code
+    erd_content = response["choices"][0]["message"]["content"]
+    print("ERD Content:", erd_content)
+    erd = extract_erd_code(erd_content)  # Assuming extract_erd_code function exists
+    print("ERD:", erd)
+
+    return erd
+
+  except Exception as e:
+    return f"An error occurred in generate_erd_openai: {str(e)}"
 
 
-@st.cache_data
+# @st.cache_data
 def mermaid_chart(markdown_code):
     new_markdown_code = markdown_code.replace("mermaid", "")
     print("new_markdown_code", new_markdown_code)
@@ -299,7 +350,6 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
     query = st.sidebar.text_input("Input your query")
     queryButton = st.sidebar.button("Get SQL code")
 
-
     st.sidebar.markdown("----")
 
     uploaded_files = st.sidebar.file_uploader(
@@ -363,8 +413,7 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
                        "FINALLY suggest a SQL schema example to showcase this."
     }
 
-
-# for the above table -> the input to the 'get SQL code'
+    # for the above table -> the input to the 'get SQL code'
     storeResponses = ""
     qCount = 1
     if st.sidebar.button("Generate Contents") or st.session_state.content_generated:

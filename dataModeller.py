@@ -8,12 +8,12 @@ import random
 import time
 import pandas as pd
 import io
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 import os
 import csv
 
 # Load variables from .env file
-# load_dotenv()
+load_dotenv()
 
 # to change from GPT4 to GPT4-Turbo
 # in model selection
@@ -31,7 +31,7 @@ with open("config.json") as f:
 
 
 # Set your OpenAI API key
-openai.api_key = os.environ.get('OPEN_AI_KEY')
+openai.api_key = os.getenv('OPEN_AI_KEY')
 
 
 
