@@ -62,8 +62,9 @@ def get_text():
     input_text = st.text_input("You: ", "", key="input")
     return input_text
 
+
 def extract_erd_code(markdown_text):
-  """Extracts the ERD code block from the given Markdown text.
+    """Extracts the ERD code block from the given Markdown text.
 
   Args:
       markdown_text: The Markdown text containing the ERD code.
@@ -72,16 +73,16 @@ def extract_erd_code(markdown_text):
       The extracted ERD code block (everything between '`mermaid' and the next '`'),
       or None if no ERD code is found.
   """
-  match = re.search(r"`mermaid\n(.*?)\n`", markdown_text, flags=re.DOTALL)
-  if match:
-    return match.group(1)
-  else:
-    return None
+    match = re.search(r"`mermaid\n(.*?)\n`", markdown_text, flags=re.DOTALL)
+    if match:
+        return match.group(1)
+    else:
+        return None
 
 
-# @st.cache_data
+@st.cache_data
 def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
-  """Analyzes a dataset and identifies relationships and keys.
+    """Analyzes a dataset and identifies relationships and keys.
 
   Args:
       dataset: A dictionary where keys are filenames and values are dataframes.
@@ -91,41 +92,41 @@ def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=
   Returns:
       String containing identified relationships and keys, or error message.
   """
-  try:
-    print("Dataset:", dataset)
+    try:
+        print("Dataset:", dataset)
 
-    # Combine all dataframes
-    combined_df = pd.concat(dataset.values())
+        # Combine all dataframes
+        combined_df = pd.concat(dataset.values())
 
-    # Craft a comprehensive prompt for LLM
-    prompt = [
-        {"role": "system", "content": "You are a knowledgeable data modeler and relationship expert."},
-        {"role": "user",
-         "content": f"""Please analyze the following dataset and identify:
-                    1. Relationships between entities, including their types (one-to-one, one-to-many, many-to-many).
+        # Craft a comprehensive prompt for LLM
+        prompt = [
+            {"role": "system", "content": "You are a knowledgeable data modeler and relationship expert."},
+            {"role": "user",
+             "content": f"""Please analyze the following dataset and identify:
+                    1. Relationships between entities(all the columns), including their types (one-to-one, one-to-many, many-to-many).
                     2. Primary key for each file's dataset information by using Dataset (a dictionary where key is filename and value are the dataset rows):\n{dataset}"""}
-    ]
+        ]
 
-    # Send the prompt to GPT-4
-    response = openai.ChatCompletion.create(
-        model="gpt-4-0125-preview",
-        messages=prompt,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+        # Send the prompt to GPT-4
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0125-preview",
+            messages=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
-    # Extract relationships and keys from LLM's response
-    relationships = response["choices"][0]["message"]["content"]  # Assume LLM provides both in a structured format
+        # Extract relationships and keys from LLM's response
+        relationships = response["choices"][0]["message"]["content"]  # Assume LLM provides both in a structured format
+        print("Relationships", relationships)
+        return relationships
 
-    return relationships
-
-  except Exception as e:
-    return f"An error occurred: {str(e)}"
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
 
 
-# @st.cache_data
+@st.cache_data
 def generate_erd(data):
-  """Generates markdown code for an ERD based on relationships and keys.
+    """Generates markdown code for an ERD based on relationships and keys.
 
   Args:
       data: A dictionary containing dataset information.
@@ -133,10 +134,10 @@ def generate_erd(data):
   Returns:
       String containing the generated ERD code in markdown format, or error message.
   """
-  try:
-    relationships_and_keys = generate_relationships_and_keys(data)
-    print("Relationships and Keys:", relationships_and_keys)
-    erd_example = '''
+    try:
+        relationships_and_keys = generate_relationships_and_keys(data)
+        print("Relationships and Keys:", relationships_and_keys)
+        erd_example = '''
                  erDiagram
                     SHORTFALL {
                         string DAT_RIF
@@ -164,40 +165,39 @@ def generate_erd(data):
                     SHORTFALL ||--o{ EXPOSURES : "has"
                     EXEMPTIONS }o--o{ EXPOSURES : "indirectly related through SHORTFALL'''
 
-    # Use OpenAI to generate ERD code based on information
-    prompt = [
-        {"role": "system", "content": "You are a helpful assistant and a data modeler."},
-        {"role": "user",
-         "content":
-             f"""Create markdown code for an Entity Relationship diagram using the mermaid.js library, 
-                    showing the following relationships and keys:\n{relationships_and_keys}. 
-                    Make sure it is a good, correct and effective markdown code that can be used with mermaid.js, do not include class markdown code.
-                    Use the below Markdown Code in Example as context on how to create one for the given relationships and keys
-                    Example:
-                    {erd_example}
+        # Use OpenAI to generate ERD code based on information
+        prompt = [
+            {"role": "system", "content": "You are a helpful assistant with experience in data modelling."},
+            {"role": "user",
+             "content":
+                 f"""Create markdown code for an Entity Relationship diagram using the mermaid.js library, 
+                    showing the following relationships and keys:\n{relationships_and_keys}. Make sure it is a good, 
+                    correct and effective markdown code that can be used with mermaid.js, do not include class 
+                    markdown code. Use the below Markdown Code in Example as context on how to create one for the 
+                    given relationships and keys Example: {erd_example} 
                    
                  """}]
-    
-    response = openai.ChatCompletion.create(
-        model="gpt-4-0125-preview",
-        messages=prompt,
-        max_tokens=4096,
-        temperature=0.6
-    )
 
-    # Extract the generated ERD code
-    erd_content = response["choices"][0]["message"]["content"]
-    print("ERD Content:", erd_content)
-    erd = extract_erd_code(erd_content)  # Assuming extract_erd_code function exists
-    print("ERD:", erd)
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0125-preview",
+            messages=prompt,
+            max_tokens=4096,
+            temperature=0.7
+        )
 
-    return erd
+        # Extract the generated ERD code
+        erd_content = response["choices"][0]["message"]["content"]
+        print("ERD Content:", erd_content)
+        erd = extract_erd_code(erd_content)  # Assuming extract_erd_code function exists
+        print("ERD:", erd)
 
-  except Exception as e:
-    return f"An error occurred in generate_erd_openai: {str(e)}"
+        return erd
+
+    except Exception as e:
+        return f"An error occurred in generate_erd_openai: {str(e)}"
 
 
-# @st.cache_data
+@st.cache_data
 def mermaid_chart(markdown_code):
     new_markdown_code = markdown_code.replace("mermaid", "")
     print("new_markdown_code", new_markdown_code)
