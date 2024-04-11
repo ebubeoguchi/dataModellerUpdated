@@ -1,19 +1,16 @@
 import streamlit as st
 from helperFunctions import business, tech
 import openai
-# from azure.identity import DefaultAzureCredential
-# from azure.keyvault.secrets import SecretClient
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 import json
 import random
 import time
 import pandas as pd
 import io
-# from dotenv import load_dotenv
 import os
 import csv
 
-# Load variables from .env file
-# load_dotenv()
 
 # to change from GPT4 to GPT4-Turbo
 # in model selection
@@ -31,7 +28,19 @@ with open("config.json") as f:
 
 
 # Set your OpenAI API key
-openai.api_key = os.environ.get('OPEN_AI_KEY')
+# credential = DefaultAzureCredential()
+#
+# secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
+# azure_openai_endpoint = secret_client.get_secret("oai-hera-uksouth-endpoint").value
+# azure_openai_key = secret_client.get_secret("oai-hera-uksouth-key").value
+
+openai.api_type = "azure"
+openai.api_version = "2023-05-15"
+openai.api_base = "https://datastudio-uki-openai-dev.openai.azure.com/"
+openai.api_key = "09149f0a2968470b802d1641dd723f63"
+
+
+# openai.api_key = os.environ.get('OPEN_AI_KEY')
 
 
 
@@ -78,7 +87,7 @@ def generate_response(user_input, conversation_history, model, dataset):
             print('Messages:', messages)
             
             response = openai.ChatCompletion.create(
-                model=model,
+                engine=model,
                 messages=messages,
                 max_tokens=1000,
                 temperature=0.7,

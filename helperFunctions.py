@@ -26,7 +26,7 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model=model,
+                engine=model,
                 max_tokens=max_tokens,
                 temperature=0.5,
             )
@@ -44,7 +44,7 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model=model,
+                engine=model,
                 max_tokens=4096,
                 temperature=0.4)
 
@@ -85,7 +85,7 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
 
         # Send the prompt to GPT-4
         response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
+            engine="gpt-4-0125-preview",
             messages=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -115,7 +115,7 @@ def generate_erd(data):
              "content": f"Create a markdown code for Entity Relationship diagram for mermaid.js library using the following relationships:\n{relationships}"},
         ]
         response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
+            engine="gpt-4-0125-preview",
             messages=prompt,
             max_tokens=4096,
             temperature=0.5
