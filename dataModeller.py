@@ -1,47 +1,45 @@
 import streamlit as st
 from helperFunctions import business, tech
 import openai
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
 import json
-import random
-import time
 import pandas as pd
 import io
-import os
 import csv
-
-
-# to change from GPT4 to GPT4-Turbo
-# in model selection
-# choose: gpt-4-1106-preview
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
 with open("config.json") as f:
     config = json.load(f)
-    key_vault_url = config["KEY_VAULT_URL"]
-    deployment_gpt35 = config["gpt3.5"]
-    deployment_gpt4 = config["gpt4"]
-
-
+    # key_vault_url = config["KEY_VAULT_URL"]
+    deployment_gpt35 = config["gpt3.5"]["deployment_name"]
+    deployment_gpt4 = config["gpt4"]["deployment_name"]
 
 
 # Set your OpenAI API key
-# credential = DefaultAzureCredential()
-#
-# secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
-# azure_openai_endpoint = secret_client.get_secret("oai-hera-uksouth-endpoint").value
-# azure_openai_key = secret_client.get_secret("oai-hera-uksouth-key").value
+def get_azure_openai_credentials(model_name):
+    """Retrieves OpenAI credentials based on the selected model from the configuration file.
 
-openai.api_type = "azure"
-openai.api_version = "2023-05-15"
-openai.api_base = "https://datastudio-uki-openai-dev.openai.azure.com/"
-openai.api_key = "09149f0a2968470b802d1641dd723f63"
+    Args:
+        model_name (str): Name of the model ("gpt-3.5" or "gpt4").
 
+    Returns:
+        tuple: A tuple containing the Azure endpoint and API key for the specified model.
+    """
 
-# openai.api_key = os.environ.get('OPEN_AI_KEY')
+    with open("config.json", "r") as f:
+        config_file = json.load(f)
+    if model_name == "gpt-35-turbo-16k":
+        endpoint = config_file["gpt3.5"]["endpoint"]
+        key = config_file["gpt3.5"]["key"]
+        return endpoint, key
 
+    elif model_name == "gpt-4-32k":
+        endpoint = config_file["gpt4"]["endpoint"]
+        key = config_file["gpt4"]["key"]
+        return endpoint, key
+
+    else:
+        raise ValueError(f"Invalid model name: {model_name}")
 
 
 # Initialize session state variables
@@ -53,7 +51,14 @@ if 'uploaded_files' not in st.session_state:
 
 
 def generate_response(user_input, conversation_history, model, dataset):
+    # Azure OpenAI credential setup
+    azure_endpoint, azure_key = get_azure_openai_credentials(model)
+    openai.api_type = "azure"
+    openai.api_version = "2024-02-15-preview"  # Update with the appropriate version if needed
+    openai.api_base = azure_endpoint
+    openai.api_key = azure_key
     try:
+
         # Prompt modified to be more suitable for a chatbot
         prompt = f"User: {user_input}\nAssistant:"
 
@@ -83,11 +88,11 @@ def generate_response(user_input, conversation_history, model, dataset):
         # Generate response for each chunk of conversation
         for chunk in chunks:
             print('Chunk:', chunk)
-            messages[-1]["content"] = chunk  
+            messages[-1]["content"] = chunk
             print('Messages:', messages)
-            
+
             response = openai.ChatCompletion.create(
-                engine=model,
+                engine="datamodeller",
                 messages=messages,
                 max_tokens=1000,
                 temperature=0.7,
@@ -99,10 +104,6 @@ def generate_response(user_input, conversation_history, model, dataset):
         return messages[-1]["content"]
     except Exception as e:
         st.error(f"An error occurred in generate_response: {str(e)}")
-
-
-
-
 
 
 def main():
@@ -199,7 +200,6 @@ def home():
     )
 
 
-
 def load_data(files):
     try:
         data_list = []
@@ -253,7 +253,8 @@ def chatbot(model):
         assistant_messages = st.session_state.assistant_messages if "assistant_messages" in st.session_state else []
 
         # Handle file uploading (moved outside the prompt input block)
-        uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"], accept_multiple_files=True)
+        uploaded_files = st.file_uploader("Upload CSV or Excel files", type=["csv", "xls", "xlsx"],
+                                          accept_multiple_files=True)
 
         if uploaded_files:
             datasets = {}
@@ -278,7 +279,8 @@ def chatbot(model):
                     user_messages.append({"role": "user", "content": prompt})
 
                     # Generate assistant response using the provided function
-                    assistant_response = generate_response(prompt, user_messages + assistant_messages, model=model, dataset=datasets)
+                    assistant_response = generate_response(prompt, user_messages + assistant_messages, model=model,
+                                                           dataset=datasets)
 
                     # Add assistant response to assistant_messages list
                     assistant_messages.append({"role": "assistant", "content": assistant_response})
@@ -299,8 +301,6 @@ def chatbot(model):
 
     except Exception as e:
         st.error(f"An error occurred in chatbot: {str(e)}")
-
-
 
 
 def process_and_ask_questions(data, model):
@@ -326,15 +326,11 @@ def process_and_ask_questions(data, model):
             response = generate_response(chunk, messages[:-1], model=model, dataset=data_chunks)
             messages.append({"role": "assistant", "content": response})
 
-
         # Display chat messages for user input and assistant response
         st.session_state.messages.extend(messages)
     except Exception as e:
         st.error(f"An error occurred in process_and_ask_questions: {str(e)}")
 
 
-
-
-
 if __name__ == "__main__":
-   main()
+    main()
