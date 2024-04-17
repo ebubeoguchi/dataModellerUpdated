@@ -90,16 +90,28 @@ def generate_response(user_input, conversation_history, model, dataset):
             print('Chunk:', chunk)
             messages[-1]["content"] = chunk
             print('Messages:', messages)
+            
+            if model == "gpt-35-turbo-16k":
 
-            response = openai.ChatCompletion.create(
-                engine="datamodeller",
-                messages=messages,
-                max_tokens=1000,
-                temperature=0.7,
-            )
+                response = openai.ChatCompletion.create(
+                    engine="datamodeller",
+                    messages=messages,
+                    max_tokens=1000,
+                    temperature=0.7,
+                )
 
-            # Update assistant message content with the response
-            messages[-1]["content"] = response["choices"][0]["message"]["content"].strip()
+                # Update assistant message content with the response
+                messages[-1]["content"] = response["choices"][0]["message"]["content"].strip()
+            elif model == "gpt-4-32k":
+                response = openai.ChatCompletion.create(
+                    engine="check",
+                    messages=messages,
+                    max_tokens=1000,
+                    temperature=0.7,
+                )
+
+                # Update assistant message content with the response
+                messages[-1]["content"] = response["choices"][0]["message"]["content"].strip()
 
         return messages[-1]["content"]
     except Exception as e:
@@ -171,7 +183,7 @@ def main():
         elif choice == "Technical View":
             tech(model, metatag_system_prompt)
         elif choice == "Chatbot":
-            chatbot(display_model)
+            chatbot(model)
     except Exception as e:
         st.error(f"An error occurred in main: {str(e)}")
 
