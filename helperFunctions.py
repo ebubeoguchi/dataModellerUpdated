@@ -4,16 +4,52 @@ import openai
 import re
 from cachetools import cached, TTLCache
 import streamlit.components.v1 as components
+import json
+
+
+
+# Set your OpenAI API key
+def get_azure_openai_credentials(model_name):
+    """Retrieves OpenAI credentials based on the selected model from the configuration file.
+
+    Args:
+        model_name (str): Name of the model ("gpt-3.5" or "gpt4").
+
+    Returns:
+        tuple: A tuple containing the Azure endpoint and API key for the specified model.
+    """
+
+    with open("config.json", "r") as f:
+        config_file = json.load(f)
+    if model_name == "gpt-35-turbo-16k":
+        endpoint = config_file["gpt3.5"]["endpoint"]
+        key = config_file["gpt3.5"]["key"]
+        return endpoint, key
+
+    elif model_name == "gpt-4-32k":
+        endpoint = config_file["gpt4"]["endpoint"]
+        key = config_file["gpt4"]["key"]
+        return endpoint, key
+
+    else:
+        raise ValueError(f"Invalid model name: {model_name}")
 
 
 @st.cache_data
 def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
     try:
-        if model not in ["gpt-3.5-turbo-0125", "gpt-4-turbo-preview"]:
+        if model not in ["gpt-35-turbo-16k", "gpt-4-32k"]:
             raise ValueError(
-                "Invalid model specified. Supported models are 'gpt-3.5-turbo-0125' and 'gpt-4'.")
+                "Invalid model specified. Supported models are 'gpt-35-turbo-16k' and 'gpt-4-32k'.")
+        print("model_name_", model)
+        # Azure OpenAI credential setup
+        azure_endpoint, azure_key = get_azure_openai_credentials(model)
+        openai.api_type = "azure"
+        openai.api_version = "2024-02-15-preview"  # Update with the appropriate version if needed
+        openai.api_base = azure_endpoint
+        openai.api_key = azure_key
 
-        if model == "gpt-3.5-turbo-0125":
+        if model == "gpt-35-turbo-16k":
             # Reduce the length of the user prompt
             user_prompt = user_prompt[:4010]
 
@@ -23,11 +59,11 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
             print("system_prompt", system_prompt)
 
             response = openai.ChatCompletion.create(
+                engine="datamodeller",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model=model,
                 max_tokens=max_tokens,
                 temperature=0.5,
             )
@@ -39,13 +75,13 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
 
             return response["choices"][0]["message"]["content"].strip()
 
-        elif model == "gpt-4-turbo-preview":
+        elif model == "gpt-4-32k":
             response = openai.ChatCompletion.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model=model,
+                engine="check",
                 max_tokens=4096,
                 temperature=0.4)
 
@@ -81,6 +117,14 @@ def extract_erd_code(markdown_text):
 
 
 @st.cache_data
+def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
+    # Azure OpenAI credential setup
+    azure_endpoint, azure_key = get_azure_openai_credentials("gpt-4-32k")
+    openai.api_type = "azure"
+    openai.api_version = "2024-02-15-preview"  # Update with the appropriate version if needed
+    openai.api_base = azure_endpoint
+    openai.api_key = azure_key
+
 def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
     """Analyzes a dataset and identifies relationships and keys.
 
@@ -109,7 +153,7 @@ def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=
 
         # Send the prompt to GPT-4
         response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
+            engine="check",
             messages=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -134,6 +178,13 @@ def generate_erd(data):
   Returns:
       String containing the generated ERD code in markdown format, or error message.
   """
+    # Azure OpenAI credential setup
+    azure_endpoint, azure_key = get_azure_openai_credentials("gpt-4-32k")
+    openai.api_type = "azure"
+    openai.api_version = "2024-02-15-preview"  # Update with the appropriate version if needed
+    openai.api_base = azure_endpoint
+    openai.api_key = azure_key
+
     try:
         relationships_and_keys = generate_relationships_and_keys(data)
         print("Relationships and Keys:", relationships_and_keys)
@@ -179,7 +230,7 @@ def generate_erd(data):
                  """}]
 
         response = openai.ChatCompletion.create(
-            model="gpt-4-0125-preview",
+            engine="check",
             messages=prompt,
             max_tokens=4096,
             temperature=0.7
@@ -316,7 +367,7 @@ def business(model, metatag_system_prompt):
         st.error(f"An error occurred in the business function: {str(e)}")
 
 
-@st.cache_data(experimental_allow_widgets=True)
+# @st.cache_data(experimental_allow_widgets=True)
 def tech(model, metatag_system_prompt):
     if "content_generated" not in st.session_state:
         st.session_state.content_generated = False

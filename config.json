@@ -1,6 +1,12 @@
 {
-    "KEY_VAULT_URL": "https://kv-oai-herademos.vault.azure.net/",
-    "gpt3.5": "gpt-3.5-turbo-0125",
-    "gpt4": "gpt-4-turbo-preview",
-    "embedding_model": "hera-text-embedding-ada-002"
+  "gpt3.5": {
+    "endpoint": "https://boidatamodeler.openai.azure.com/",
+    "key": "1aad76e57006411892bc3d095a4bd367",
+    "deployment_name":  "gpt-35-turbo-16k"
+  },
+  "gpt4": {
+    "endpoint": "https://boidatamodeler.openai.azure.com/",
+    "key": "1aad76e57006411892bc3d095a4bd367",
+    "deployment_name":  "gpt-4-32k"
+  }
 }
