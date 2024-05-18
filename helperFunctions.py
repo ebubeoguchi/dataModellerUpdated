@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import openai
 import re
+from cachetools import cached, TTLCache
 import streamlit.components.v1 as components
 import json
-
 
 
 # Set your OpenAI API key
@@ -98,8 +98,25 @@ def get_text():
     return input_text
 
 
+def extract_erd_code(markdown_text):
+    """Extracts the ERD code block from the given Markdown text.
+
+  Args:
+      markdown_text: The Markdown text containing the ERD code.
+
+  Returns:
+      The extracted ERD code block (everything between '`mermaid' and the next '`'),
+      or None if no ERD code is found.
+  """
+    match = re.search(r"`mermaid\n(.*?)\n`", markdown_text, flags=re.DOTALL)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
 @st.cache_data
-def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
+def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
     # Azure OpenAI credential setup
     azure_endpoint, azure_key = get_azure_openai_credentials("gpt-4-32k")
     openai.api_type = "azure"
@@ -107,25 +124,34 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
     openai.api_base = azure_endpoint
     openai.api_key = azure_key
 
+    """Analyzes a dataset and identifies relationships and keys.
+
+  Args:
+      dataset: A dictionary where keys are filenames and values are dataframes.
+      max_tokens: Maximum number of tokens for GPT-4 response (default: 4096).
+      temperature: Temperature for controlling randomness in GPT-4 response (default: 0.9).
+
+  Returns:
+      String containing identified relationships and keys, or error message.
+  """
     try:
-        # Combine all dataframes into a single dataframe
+        print("Dataset:", dataset)
+
+        # Combine all dataframes
         combined_df = pd.concat(dataset.values())
 
-        # Convert all columns to strings
-        combined_df = combined_df.astype(str)
-
-        # Get a list of all unique values across all columns (potential entities)
-        entities = combined_df.values.flatten().tolist()
-
-        # Convert the list to a comma-separated string
-        unique_entities = ", ".join(set(entities))
-        datas = combined_df.to_string(index=False)
-
-        # Craft the prompt, incorporating actual data as examples
+        # Craft a comprehensive prompt for LLM
         prompt = [
-            {"role": "system",
-             "content": f"Find any relationships within the data {datas}. Examples of data points include: {unique_entities}."},
-            {"role": "user", "content": combined_df.to_string(index=False)}
+            {"role": "system", "content": "You are an expert in data modeling and entity relationship analysis."},
+            {"role": "user", "content": f"""
+                Analyze the provided dataset and identify:
+                1. The relationships between entities (columns), specifying their types (one-to-one, one-to-many, many-to-many).
+                2. The primary key for each dataset within the files.
+
+                The dataset is structured as a dictionary where the key is the filename and the value is the dataset (rows).
+
+                Dataset:\n{dataset}
+            """}
         ]
 
         # Send the prompt to GPT-4
@@ -136,12 +162,10 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
             temperature=temperature,
         )
 
-        print('Response', response)
-
-        # Extract the generated text
-        content = response["choices"][0]["message"]["content"]
-
-        return content
+        # Extract relationships and keys from LLM's response
+        relationships = response["choices"][0]["message"]["content"]  # Assume LLM provides both in a structured format
+        print("Relationships", relationships)
+        return relationships
 
     except Exception as e:
         return f"An error occurred: {str(e)}"
@@ -149,6 +173,14 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
 
 @st.cache_data
 def generate_erd(data):
+    """Generates markdown code for an ERD based on relationships and keys.
+
+  Args:
+      data: A dictionary containing dataset information.
+
+  Returns:
+      String containing the generated ERD code in markdown format, or error message.
+  """
     # Azure OpenAI credential setup
     azure_endpoint, azure_key = get_azure_openai_credentials("gpt-4-32k")
     openai.api_type = "azure"
@@ -157,34 +189,70 @@ def generate_erd(data):
     openai.api_key = azure_key
 
     try:
-        relationships = generate_relationships(data)
+        relationships_and_keys = generate_relationships_and_keys(data)
+        print("Relationships and Keys:", relationships_and_keys)
+        erd_example = '''
+                 erDiagram
+                    SHORTFALL {
+                        string DAT_RIF
+                        string COD_ABI
+                        string COD_EXP
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string DAT_RIF_COD_ABI_COD_EXP_COD_OPERAZ PK
+                    }
+                    EXEMPTIONS {
+                        string COD_ABI
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string COD_ABI_COD_OPERAZ PK
+                    }
+                    EXPOSURES {
+                        string DAT_RIF
+                        string COD_ABI
+                        string COD_EXP
+                        string COD_OPERAZ
+                        string COD_FIL_OPERAZ
+                        string DAT_RIF_COD_ABI_COD_EXP_COD_OPERAZ PK
+                    }
+                    SHORTFALL ||--o{ EXEMPTIONS : "has"
+                    SHORTFALL ||--o{ EXPOSURES : "has"
+                    EXEMPTIONS }o--o{ EXPOSURES : "indirectly related through SHORTFALL'''
 
-        print("relationships", relationships)
-        # Use OpenAI to generate ERD code based on relationships
+        # Use OpenAI to generate ERD code based on information
         prompt = [
-            {"role": "system", "content": "You are a helpful assistant and a data modeller."},
-            {"role": "user",
-             "content": f"Create a markdown code for Entity Relationship diagram for mermaid.js library using the following relationships:\n{relationships}"},
+            {"role": "system",
+             "content": "You are an expert in data modeling and experienced in creating Entity Relationship Diagrams (ERDs) using mermaid.js."},
+            {"role": "user", "content": f"""
+                Create markdown code for an Entity Relationship Diagram (ERD) using the mermaid.js library. The ERD should illustrate the following relationships and keys:
+
+                {relationships_and_keys}
+
+                Ensure the markdown code is clear, accurate, and compatible with mermaid.js. Focus on representing relationships correctly, including their types (one-to-one, one-to-many, many-to-many), and defining primary keys accurately.
+
+                Here is an example of a well-structured ERD in mermaid.js format for reference:
+
+                {erd_example}
+
+                Use this example as a guide to format the ERD correctly based on the provided relationships and keys.
+            """}
         ]
+
         response = openai.ChatCompletion.create(
             engine="check",
             messages=prompt,
             max_tokens=4096,
-            temperature=0.5
+            temperature=0.7
         )
 
-        content = response["choices"][0]["message"]["content"]
-        match = re.search(r"```mermaid(.*?)```", content, re.DOTALL)
+        # Extract the generated ERD code
+        erd_content = response["choices"][0]["message"]["content"]
+        print("ERD Content:", erd_content)
+        erd = extract_erd_code(erd_content)  # Assuming extract_erd_code function exists
+        print("ERD:", erd)
 
-        if match:
-            print('Match!!!!!')
-            erd_content = match.group(1)
-            print('erd_content', erd_content)
-            return erd_content
-        else:
-            return "No content found between triple single-quotes."
+        return erd
 
-        # return erd_code
     except Exception as e:
         return f"An error occurred in generate_erd_openai: {str(e)}"
 
