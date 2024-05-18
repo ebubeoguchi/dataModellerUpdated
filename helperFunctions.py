@@ -7,7 +7,6 @@ import streamlit.components.v1 as components
 import json
 
 
-
 # Set your OpenAI API key
 def get_azure_openai_credentials(model_name):
     """Retrieves OpenAI credentials based on the selected model from the configuration file.
@@ -117,7 +116,7 @@ def extract_erd_code(markdown_text):
 
 
 @st.cache_data
-def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> str:
+def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
     # Azure OpenAI credential setup
     azure_endpoint, azure_key = get_azure_openai_credentials("gpt-4-32k")
     openai.api_type = "azure"
@@ -125,7 +124,6 @@ def generate_relationships(dataset: dict, max_tokens=4096, temperature=0.9) -> s
     openai.api_base = azure_endpoint
     openai.api_key = azure_key
 
-def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=0.9):
     """Analyzes a dataset and identifies relationships and keys.
 
   Args:
@@ -144,11 +142,16 @@ def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=
 
         # Craft a comprehensive prompt for LLM
         prompt = [
-            {"role": "system", "content": "You are a knowledgeable data modeler and relationship expert."},
-            {"role": "user",
-             "content": f"""Please analyze the following dataset and identify:
-                    1. Relationships between entities(all the columns), including their types (one-to-one, one-to-many, many-to-many).
-                    2. Primary key for each file's dataset information by using Dataset (a dictionary where key is filename and value are the dataset rows):\n{dataset}"""}
+            {"role": "system", "content": "You are an expert in data modeling and entity relationship analysis."},
+            {"role": "user", "content": f"""
+                Analyze the provided dataset and identify:
+                1. The relationships between entities (columns), specifying their types (one-to-one, one-to-many, many-to-many).
+                2. The primary key for each dataset within the files.
+
+                The dataset is structured as a dictionary where the key is the filename and the value is the dataset (rows).
+
+                Dataset:\n{dataset}
+            """}
         ]
 
         # Send the prompt to GPT-4
@@ -218,16 +221,22 @@ def generate_erd(data):
 
         # Use OpenAI to generate ERD code based on information
         prompt = [
-            {"role": "system", "content": "You are a helpful assistant with experience in data modelling."},
-            {"role": "user",
-             "content":
-                 f"""Create markdown code for an Entity Relationship diagram using the mermaid.js library, 
-                    showing the following relationships and keys:\n{relationships_and_keys}. Make sure it is a good, 
-                    correct and effective markdown code that can be used with mermaid.js, do not include class 
-                    markdown code. Use the below Markdown Code in Example as context on how to create one for the 
-                    given relationships and keys Example: {erd_example} 
-                   
-                 """}]
+            {"role": "system",
+             "content": "You are an expert in data modeling and experienced in creating Entity Relationship Diagrams (ERDs) using mermaid.js."},
+            {"role": "user", "content": f"""
+                Create markdown code for an Entity Relationship Diagram (ERD) using the mermaid.js library. The ERD should illustrate the following relationships and keys:
+
+                {relationships_and_keys}
+
+                Ensure the markdown code is clear, accurate, and compatible with mermaid.js. Focus on representing relationships correctly, including their types (one-to-one, one-to-many, many-to-many), and defining primary keys accurately.
+
+                Here is an example of a well-structured ERD in mermaid.js format for reference:
+
+                {erd_example}
+
+                Use this example as a guide to format the ERD correctly based on the provided relationships and keys.
+            """}
+        ]
 
         response = openai.ChatCompletion.create(
             engine="check",
