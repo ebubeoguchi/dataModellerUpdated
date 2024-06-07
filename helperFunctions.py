@@ -376,7 +376,7 @@ def business(model, metatag_system_prompt):
         st.error(f"An error occurred in the business function: {str(e)}")
 
 
-# @st.cache_data(experimental_allow_widgets=True)
+# @st.cache_data(experimental_allow_widgets=True) - THIS LINE BREAKS EVERYTHING, DAN LEAVE COMMENTED OUT
 def tech(model, metatag_system_prompt):
     if "content_generated" not in st.session_state:
         st.session_state.content_generated = False
@@ -384,31 +384,72 @@ def tech(model, metatag_system_prompt):
     conversation_history = []
     # conversation_history.append({"role": "assistant", "content": init_prompt})
     st.title("Technical View")
+    st.write(
+        "Please choose from the following options for your SQL generator needs, make use of either the quick access prompts or the chat bot feature. Upload your own documents to the left.")
+    st.write(
+        "Scegli tra le seguenti opzioni per le tue esigenze di generatore SQL, utilizza le istruzioni di accesso rapido o la funzione chat bot. Carica i tuoi documenti a sinistra.")
     st.sidebar.markdown("----")
-    st.markdown('''
-   
-   
-    Please use the "Generate Contents button" to use the following preset prompts. Or use "Get SQL Code" with your own personalised prompt. 
+    st.subheader("1. Quick Access Prompts")
+    col1, col2, col3 = st.columns(3)
+    col4, col5, col6 = st.columns(3)
+    with col1:
+        queryButton2 = st.button("Star Schema")
+        st.write("1. Generating the Star Schema for the data with lineage")
 
-Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni preimpostate. Oppure utilizza "Ottieni codice SQL" con il tuo prompt personalizzato.
-    
-1. **SQL Table Creation**: To create a SQL schema based on provided data, use the prompt: 
-   - "create a SQL schema based on the above data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables."
-2. **Viewing Tabular Data**: For a detailed view of your schema or data in table format, use:
-   - "Provide the tabular view of the above schema"
+    with col2:
+        queryButton3 = st.button("Table Lineage")
+        st.write("2. What is the lineage between the provided tables")
 
-3. **Generating SQL Code**: To get the SQL code for creating tables with detailed column information, use:
-   - "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in details"
+    with col3:
+        queryButton4 = st.button("Data Model Visualization")
+        st.write("3. Understand how your data can be structured in SQL tables with primary key relationships")
+    with col4:
+        queryButton5 = st.button("SQL Query Generate")
+        st.write("4. Generate SQL queries relevant to the datasets uploaded.")
+    # with col5:
+    #   queryButton6 = st.button("Data Dictionary Example")
+    # st.write("5. Example just using the loaded data dictionary")
 
-4. **Data Model Visualization**: To understand how your data can be structured in SQL tables with primary 
-   key relationships, use:
-   - "Can you show all the column names, their datatypes in SQL format and brief description in a nice tabular format"
-   
-5. **SQL Star Schema**": To understand how the following datasets can be organized into a star schema using fact table and dimension table. Use:
-   - "Star Schema"
-''')
-    query = st.sidebar.text_input("Input your query")
-    queryButton = st.sidebar.button("Get SQL code")
+    st.subheader("2. Chat Bot Prompt examples")
+    st.write("Please use these examples in the chat bot to the left")
+
+    with st.expander("Examples"):
+
+        st.markdown('''
+
+
+
+
+        Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni preimpostate. Oppure utilizza "Ottieni codice SQL" con il tuo prompt personalizzato.
+
+            •  SQL Star Schema: To understand how the following datasets can be organized into a star schema using fact table and dimension table:
+                   "create a SQL schema based on the provided data, breaking it into meaningful tables with primary keys and also provide a tabular view of those tables."
+
+            •  Viewing Tabular Data: For a detailed view of your schema or data in table format:
+                   "Provide the tabular view of the above schema"
+
+            • Generating SQL Code: To get the SQL code for creating tables with detailed column information:
+                    "Can you show the data model in tabular format if we create several SQL tables based on this data with primary key relationships in details"
+
+            • Data Model Visualization: To understand how your data can be structured in SQL tables with primary key relationships, use:
+                   "Can you show all the column names, their datatypes in SQL format and brief description in a nice tabular format"
+
+    ''')
+    st.subheader("3. Generate all prompts")
+    st.write("Or use the 'Generate Contents' button to generate all of the following preset prompts")
+    # data_dictionary = pd.read_csv('table_schemaCSV.csv')
+    # st.subheader('4. Dictionary')
+    # with st.expander("Given Data"):
+    #   st.dataframe(data_dictionary)
+    #  data_dictionary_str = data_dictionary.to_string()
+
+    query = st.sidebar.text_input(" Input your query to the Chat Bot")
+    queryButton = st.sidebar.button("Generate Response")
+    st.sidebar.markdown("----")
+    st.sidebar.text("Generate all prompts:")
+    allButton = st.sidebar.button("Generate Contents")
+
+    Global_data_prompt = "DO NOT USE ANY DATA THAT IS NOT UPLOADED, if nothing is uploaded please reply ('Nothing has been uploaded)'"
 
     st.sidebar.markdown("----")
 
@@ -421,67 +462,48 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
         content = str(uploaded_file.name) + " " + str(code_txt)
         dataframe = pd.read_csv(uploaded_file, nrows=20)  # Read only the first 20 rows
         conversation_history.append({"role": "user", "content": content})
-        st.write("filename:", uploaded_file.name)
-        st.table(dataframe)
+        # st.write("filename:", uploaded_file.name)
+        # st.table(dataframe)
         # st.code(code_txt.decode("utf-8"), language='python')
+        with st.expander(f"File Preview: {uploaded_file.name}"):
+            st.table(dataframe)
 
+    st.header("Output")
     st.sidebar.markdown("----")
 
     # Predefined question set
-    questions = {
-        "SQL table": "Create a SQL schema based on the above data, breaking it into meaningful tables with primary "
-                     "keys and also provide a tabular view of those tables.",
-        "Table": "Provide the tabular view of the above schema",
-        "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, "
-                    "splitting the tables with assumed primary and foreign keys",
-        "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this "
-                      "data with primary key relationships in detail?",
-        "Tabular Data": "Can you show all the column names, their datatypes in SQL format and a brief description in "
-                        "a nice tabular format?",
-        "Star Schema": "Objective: Develop a comprehensive Star schema for banking analytics. This schema should "
-                       "effectively organize transactional data and related dimensions to support efficient querying "
-                       "and insights extraction. Fact Table Identification: Begin by reviewing the dataset to "
-                       "identify tables that can serve as fact tables. Look for tables containing transaction "
-                       "records, which are central to banking analytics. These tables should include measurable "
-                       "metrics like transaction amounts, interest rates, and fee charges. Ensure these tables "
-                       "contain or are linked via foreign keys to other relevant tables, facilitating a connection to "
-                       "various dimensions.Dimension Table Selection: Identify tables that will serve as dimension "
-                       "tables. These are crucial for providing context to our fact data, including customer "
-                       "demographics, account types, product details, and temporal aspects. Dimension tables add "
-                       "depth to the analysis, enabling detailed segmentation and trend identification.Relationship "
-                       "Analysis: Carefully examine how each potential fact table relates to the identified dimension "
-                       "tables. This step involves scrutinizing foreign key relationships and matching field names to "
-                       "ensure a logical and business-relevant connection between tables. The goal is to directly "
-                       "link each dimension table to at least one fact table, creating a star-like structure centered "
-                       "around each fact table. "
-                       "Star Schema Layout Proposal: Propose a detailed Star schema configuration, highlighting the "
-                       "chosen central fact table(s) and their directly linked dimension tables. Provide clear "
-                       "examples of foreign key relationships or common fields that facilitate these connections. "
-                       "This layout should reflect the intricacies of banking operations and analytics requirements. "
-                       "Complex Data Structure Handling: Address scenarios with multiple fact tables serving distinct "
-                       "analytical functions (e.g., daily transactions versus long-term loan performance). Assess the "
-                       "feasibility of integrating disparate data into a unified fact table or the necessity of "
-                       "developing separate, related Star schemas or a more complex snowflake schema to accommodate "
-                       "these varied analytical needs. Schema Example: Based on the dataset provided, outline an "
-                       "example Star schema relevant to the banking sector. Include a diagram or a tabular "
-                       "representation illustrating the fact table(s), dimension tables, and their interconnections, "
-                       "ensuring it serves as a practical example of the Star schema principles discussed. "
-                       "Deliverable: A well-structured Star schema design that enhances data accessibility and "
-                       "analysis for banking operations, supported by examples and diagrams where applicable. This "
-                       "schema should enable stakeholders to derive meaningful insights efficiently and support a "
-                       "wide range of analytical applications within the banking sector. "
-                       "FINALLY suggest a SQL schema example to showcase this."
-    }
+    questions = {"""
+        USING THE PROVIDED DATA or the """ +
+                 "Star Schema": "Develop a star schema design for the provided data by: Identifying the appropriate fact "
+                                "table(s) containing transaction records and measurable metrics."
+                                "Selecting relevant dimension tables to provide context. Analyzing the "
+                                "relationships between the fact and dimension tables, ensuring proper connections via foreign "
+                                "keys or common fields. Proposing a star schema layout with the central fact table(s) and "
+                                "directly linked dimension tables, illustrating their connections. Addressing scenarios with "
+                                "multiple fact tables serving distinct analytical needs, and considering integrating them or "
+                                "developing separate star schemas. Providing a practical example of the star schema design, "
+                                "and a tabular representation",
+                 "SQL table": "Create a SQL schema based on the PROVIDED DATA, breaking it into meaningful tables with primary "
+                              "keys and also provide a tabular view of those tables. Please remember to provide lineage.",
+                 "Table": "Provide the tabular view of the above schema",
+                 "SQL code": "Provide the SQL code to create tables with the columns in the ACTUAL_COLUMN column in the data, "
+                             "splitting the tables with assumed primary and foreign keys, provide some examples of the SQL queries that could be used.",
+                 "Data Model": "Can you show the data model in tabular format if we create several SQL tables based on this "
+                               "data with primary key relationships in detail?",
+                 "Tabular Data": "Can you show all the column names, their datatypes in SQL format and a brief description in "
+                                 "a nice tabular format?"""
+                 }
 
     # for the above table -> the input to the 'get SQL code'
     storeResponses = ""
     qCount = 1
-    if st.sidebar.button("Generate Contents") or st.session_state.content_generated:
+    if allButton or st.session_state.content_generated:
         for q in questions:
             # Modify the prompt to include only the first 20 rows of the dataset
             prompt = "\n".join([message["content"] for message in conversation_history])
             prompt += "\n" + questions[q]
-            prompt += "\n" + metatag_system_prompt
+            prompt += "\n" + metatag_system_prompt + Global_data_prompt
+            print(prompt)
             # print(prompt)
             output = generate_response(metatag_system_prompt, prompt, model)
             storeResponses += (
@@ -496,8 +518,75 @@ Utilizzare il pulsante "Genera contenuto" per utilizzare le seguenti istruzioni 
 
     if queryButton or st.session_state.content_generated:
         prompt = "\n".join([message["content"] for message in conversation_history])
-        prompt += "\n" + query
-        with st.expander("SQL code:"):
+        prompt += "\n" + query + """"USING THE PROVIDED DATA  """
+        with st.expander("Generating Chat Bot response:"):
+            st.write(generate_response(metatag_system_prompt, prompt, model))
+
+        st.sidebar.download_button("Download Responses", data=storeResponses)
+
+    if queryButton2 or st.session_state.content_generated:
+        starPrompt = """USING ONLY THE PROVIDED DATA, IF NOTHING IS UPLOADED REPLY ("No Files Uploaded") OTHERWISE""" + """. Do the following: 1. Develop a 
+        star schema design with lineage for banking analytics by Identifying the appropriate fact table(s) containing 
+        transaction records and measurable metrics. Selecting relevant dimension tables to provide context. 2. 
+        Analyzing the relationships between the fact and dimension tables, ensuring proper connections via foreign 
+        keys or common fields. 3. Proposing a star schema layout with the central fact table(s) and directly linked 
+        dimension tables, illustrating their connections. Addressing scenarios with multiple fact tables serving 
+        distinct analytical needs, and considering integrating them or developing separate star schemas. 4. Providing 
+        a practical example of the star schema design, including a diagram or tabular representation, specific to the 
+        banking sector. 5. Suggesting a SQL schema example to showcase the proposed star schema design table. Show 
+        the example schema in absolute full and comprehensive, no 'other metrics' or 'add more fields as necessary' 
+        lines 6. 7. Please remember to provide lineage. 8. illustrate their connections using a flow chart or ascii. """
+
+        prompt = "\n".join([message["content"] for message in conversation_history])
+        prompt += "\n" + starPrompt + Global_data_prompt
+        print(prompt)
+        with st.expander("Generating SQL Star Schema...:"):
+            st.write(generate_response(metatag_system_prompt, prompt, model))
+
+        st.sidebar.download_button("Download Responses", data=storeResponses)
+
+    if queryButton3 or st.session_state.content_generated:
+        lineagePrompt = """USING THE PROVIDED DATA """ + """. What is the lineage 
+        between these tables, please provide SQL schema breaking it into meaningful tables using fact tables and 
+        dimensions table with primary keys AND illustrate their connections AND THEN provide a tabular 
+        view of those tables. Please remember to provide lineage and discuss it. """
+
+        prompt = "\n".join([message["content"] for message in conversation_history])
+        prompt += "\n" + lineagePrompt + Global_data_prompt
+        print(prompt)
+        # print(data_dictionary)
+        with st.expander("Generating Lineage...:"):
+            st.write(generate_response(metatag_system_prompt, prompt, model))
+
+        st.sidebar.download_button("Download Responses", data=storeResponses)
+
+    if queryButton4 or st.session_state.content_generated:
+        dataModelVisPrompt = """USING THE PROVIDED DATA  """ + """. Can you show all the 
+        column names, their datatypes in SQL format and brief description in a nice tabular format AND illustrate 
+        their connections using a flow chart or ascii. Please provide some example SQL queries and a example SQL 
+        Schema using relevant dimensions and fact tables that can be made on this financial data """
+        prompt = "\n".join([message["content"] for message in conversation_history])
+        prompt += "\n" + dataModelVisPrompt + Global_data_prompt
+        print(prompt)
+        # print(data_dictionary)
+        with st.expander("Generating Data Model Visualisation"):
+            st.write(generate_response(metatag_system_prompt, prompt, model))
+
+        st.sidebar.download_button("Download Responses", data=storeResponses)
+
+    if queryButton5 or st.session_state.content_generated:
+        sqlQueryPrompt = """USING THE PROVIDED DATA or the """ + """. Perform the following to 
+        provide some relevant SQL query examples: 1. Propose a star schema layout with the central fact table(s) and 
+        directly linked dimension tables. 2. Illustrate the connections between the tables within the star schema 
+        using a clear diagram or tabular format or ascii diagram. 3. Design and provide SQL query examples to 
+        maniupulate the on the data. Specify primary and foreign keys for these tables. 4. Suggesting a SQL query 
+        example to showcase the proposed star schema design table. 5. Include a brief discussion on data lineage, 
+        explaining how data flows and is transformed within this schema. """
+        prompt = "\n".join([message["content"] for message in conversation_history])
+        prompt += "\n" + sqlQueryPrompt + Global_data_prompt
+        print(prompt)
+        # print(data_dictionary)
+        with st.expander("Generating SQL Queries"):
             st.write(generate_response(metatag_system_prompt, prompt, model))
 
         st.sidebar.download_button("Download Responses", data=storeResponses)
