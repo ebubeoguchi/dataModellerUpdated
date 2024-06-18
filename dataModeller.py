@@ -104,7 +104,7 @@ def generate_response(user_input, conversation_history, model, dataset):
                 messages[-1]["content"] = response["choices"][0]["message"]["content"].strip()
             elif model == "gpt-4-32k":
                 response = openai.ChatCompletion.create(
-                    engine="check",
+                    engine="gpt-4-32k",
                     messages=messages,
                     max_tokens=1000,
                     temperature=0.7,

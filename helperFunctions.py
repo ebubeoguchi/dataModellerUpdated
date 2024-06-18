@@ -80,7 +80,7 @@ def generate_response(system_prompt, user_prompt, model, max_tokens=1028):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                engine="check",
+                engine="gpt-4-32k",
                 max_tokens=4096,
                 temperature=0.4)
 
@@ -156,7 +156,7 @@ def generate_relationships_and_keys(dataset: dict, max_tokens=4096, temperature=
 
         # Send the prompt to GPT-4
         response = openai.ChatCompletion.create(
-            engine="check",
+            engine="gpt-4-32k",
             messages=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -239,7 +239,7 @@ def generate_erd(data):
         ]
 
         response = openai.ChatCompletion.create(
-            engine="check",
+            engine="gpt-4-32k",
             messages=prompt,
             max_tokens=4096,
             temperature=0.7
